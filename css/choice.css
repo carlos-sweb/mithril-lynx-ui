@@ -34,6 +34,15 @@
   border-color: var(--primary);
 }
 
+/* Indeterminate is a distinct state, not a shade of checked — it reads as
+   "partially selected", so it stays quieter than a resolved check. Without
+   this the two states are pixel-identical and resolving one looks like a
+   no-op. */
+.ui-checkbox.ui-indeterminate:not(.ui-checked) {
+  background-color: var(--neutral-subtle);
+  border-color: var(--neutral-subtle);
+}
+
 .ui-checkbox.ui-disabled,
 .ui-radio.ui-disabled {
   opacity: 0.4;

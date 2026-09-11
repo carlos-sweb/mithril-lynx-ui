@@ -21,6 +21,12 @@ const state = {
   overlayOpen: false,
   notifications: true,
   terms: false,
+  // A tri-state checkbox: `indeterminate` is owned by the app, never by the
+  // component (lynx-ui has no defaultIndeterminate either). Tapping reports
+  // "resolved to checked" and it's the owner's job to clear the flag — which
+  // is exactly what makes the state visibly move.
+  partial: true,
+  partialChecked: false,
   plan: "mensual",
   taps: 0,
 };
@@ -151,12 +157,27 @@ const Root: m.Component = {
         row(
           m(
             Checkbox,
-            { className: "ui-checkbox", indeterminate: true },
+            {
+              className: "ui-checkbox",
+              indeterminate: state.partial,
+              checked: state.partialChecked,
+              onChange: (v: boolean) => {
+                state.partialChecked = v;
+                state.partial = false;
+                shim.redraw();
+              },
+            },
             m(CheckboxIndicator, { className: "ui-checkbox-indicator" }, [
-              m("text", { class: "ui-checkbox-indicator-mark" }, "–"),
+              m("text", { class: "ui-checkbox-indicator-mark" }, state.partial ? "–" : "✓"),
             ]),
           ),
-          label("Indeterminado (al tocar queda marcado)"),
+          label(
+            state.partial
+              ? "Indeterminado (al tocar queda marcado)"
+              : state.partialChecked
+                ? "Resuelto a marcado"
+                : "Desmarcado",
+          ),
         ),
       ),
 
