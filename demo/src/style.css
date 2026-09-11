@@ -224,3 +224,12 @@
   font-weight: 600;
   color: var(--primary-content, #ff00ff);
 }
+
+.SliderRow {
+  height: 32px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-shrink: 0;
+}

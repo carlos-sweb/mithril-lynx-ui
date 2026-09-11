@@ -8,6 +8,7 @@ import { Radio, RadioGroup, RadioIndicator } from "mithril-lynx-ui/radio-group";
 import { Draggable } from "mithril-lynx-ui/draggable";
 import { Input, TextArea } from "mithril-lynx-ui/input";
 import { Presence, PresenceContent } from "mithril-lynx-ui/presence";
+import { SliderIndicator, SliderRoot, SliderThumb, SliderTrack } from "mithril-lynx-ui/slider";
 import { Switch, SwitchThumb, SwitchTrack } from "mithril-lynx-ui/switch";
 
 import "./style.css";
@@ -37,6 +38,8 @@ const state = {
   nombre: "",
   notas: "",
   drag: { x: 0, y: 0 },
+  volume: 0.4,
+  range: [0.2, 0.7] as [number, number],
 };
 
 // Filled in on mount by <Input>; the Mithril stand-in for useImperativeHandle.
@@ -225,6 +228,41 @@ const Root: m.Component = {
               m("text", { class: "Swatch-label" }, token.name),
             ]),
           ),
+        ),
+      ),
+
+      ...section(
+        "SLIDER",
+        m("text", { class: "Row-note" }, `volumen: ${Math.round(state.volume * 100)}%`),
+        m(
+          SliderRoot,
+          {
+            className: "SliderRow",
+            value: state.volume,
+            onValueChange: (v: number | [number, number]) => { state.volume = v as number; shim.redraw(); },
+          },
+          m(SliderTrack, { className: "ui-slider-track" }, [
+            m(SliderIndicator, { className: "ui-slider-indicator" }),
+            m(SliderThumb, { className: "ui-slider-thumb" }),
+          ]),
+        ),
+        m(
+          "text",
+          { class: "Row-note" },
+          `rango: ${Math.round(state.range[0] * 100)}% – ${Math.round(state.range[1] * 100)}%`,
+        ),
+        m(
+          SliderRoot,
+          {
+            className: "SliderRow",
+            value: state.range,
+            onValueChange: (v: number | [number, number]) => { state.range = v as [number, number]; shim.redraw(); },
+          },
+          m(SliderTrack, { className: "ui-slider-track" }, [
+            m(SliderIndicator, { className: "ui-slider-indicator" }),
+            m(SliderThumb, { className: "ui-slider-thumb", index: 0 }),
+            m(SliderThumb, { className: "ui-slider-thumb", index: 1 }),
+          ]),
         ),
       ),
 

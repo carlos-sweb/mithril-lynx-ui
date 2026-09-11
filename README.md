@@ -76,11 +76,37 @@ m(Switch, { defaultChecked: true }, ({ checked, active, disabled }) =>
 | `mithril-lynx-ui/radio-group` | `RadioGroup`, `Radio`, `RadioIndicator` |
 | `mithril-lynx-ui/draggable` | `Draggable` |
 | `mithril-lynx-ui/input` | `Input`, `TextArea` |
+| `mithril-lynx-ui/slider` | `SliderRoot`, `SliderTrack`, `SliderThumb`, `SliderIndicator` |
 | `mithril-lynx-ui/presence` | `Presence`, `PresenceContent`, `usePresence`, `presenceClasses` |
 | `mithril-lynx-ui/scope` | `createScope` — the Context substitute described below |
 | `mithril-lynx-ui/native` | `nativeBool` — see Native element interop |
 
-Slider, Dialog, Sheet, Popover, List, Swiper, Sortable, SwipeAction and the rest are not built yet.
+Dialog, Sheet, Popover, List, Swiper, Sortable, SwipeAction and the rest are not built yet.
+
+### `slider` — one value model, two shapes
+
+A single `internal/slider-utils.js` (ported close to verbatim — the original has no React import at all)
+drives both a plain 0..1 value and a two-thumb `[number, number]` range: dragging near a thumb in range
+mode picks whichever one is closer, a thumb can meet but never cross the other, and a collapsed range
+(both thumbs equal) picks a direction to move based on which way you drag away from it.
+
+```js
+m(SliderRoot, { value, onValueChange: (v) => { value = v; shim.redraw(); } },
+  m(SliderTrack, { className: "ui-slider-track" }, [
+    m(SliderIndicator, { className: "ui-slider-indicator" }),
+    m(SliderThumb, { className: "ui-slider-thumb" }),      // or two, with index: 0 / index: 1, for a range
+  ]));
+```
+
+Track width isn't known on the very first touch, so the bounds are measured asynchronously (the same
+`NodesRef.invoke("boundingClientRect", ...)` call `mithril-lynx/element`'s `wrapElement().invoke()`
+already wraps) and any move that arrives before that resolves is queued and replayed once it does — ported
+as-is; that queuing is load-bearing, not defensive paranoia.
+
+Uses `on*` handlers rather than the original's `catch*` (Lynx's "stop this from also reaching an
+ancestor" event modifier) — the shim has no capture/stop-propagation concept, only a plain
+`addEventListener`. Verified this doesn't conflict with a surrounding `<scroll-view>` in this project's
+own gallery, but that's one layout, not a guarantee.
 
 ### `draggable` — where the MTS bet pays off
 

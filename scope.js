@@ -38,6 +38,14 @@
 //
 // Each createScope() call is independent: a useScope() only ever resolves
 // against Provider instances created by that same createScope() call.
+//
+// Corollary, easy to trip on: useScope() is only valid from view(). By the
+// time a consumer's oncreate/onupdate runs, the WHOLE tree's view()s have
+// already finished — including the trailing PopMarker's, which already
+// popped this Provider back off. slider.js hit exactly this (needed the
+// scope value inside oncreate, to register a native ref) — the fix is to
+// read useScope() in view() and stash the result on vnode.state, then read
+// vnode.state in oncreate instead of asking the scope a second time.
 
 import m from "mithril";
 

@@ -49,6 +49,10 @@
     "./draggable": {
       "types": "./draggable.d.ts",
       "default": "./draggable.js"
+    },
+    "./slider": {
+      "types": "./slider.d.ts",
+      "default": "./slider.js"
     }
   },
   "files": [
@@ -71,7 +75,10 @@
     "input.js",
     "input.d.ts",
     "draggable.js",
-    "draggable.d.ts"
+    "draggable.d.ts",
+    "slider.js",
+    "slider.d.ts",
+    "internal/slider-utils.js"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
