@@ -74,12 +74,31 @@ m(Switch, { defaultChecked: true }, ({ checked, active, disabled }) =>
 | `mithril-lynx-ui/switch` | `Switch`, `SwitchTrack`, `SwitchThumb` |
 | `mithril-lynx-ui/checkbox` | `Checkbox`, `CheckboxIndicator` |
 | `mithril-lynx-ui/radio-group` | `RadioGroup`, `Radio`, `RadioIndicator` |
+| `mithril-lynx-ui/input` | `Input`, `TextArea` |
 | `mithril-lynx-ui/presence` | `Presence`, `PresenceContent`, `usePresence`, `presenceClasses` |
 | `mithril-lynx-ui/scope` | `createScope` — the Context substitute described below |
 | `mithril-lynx-ui/native` | `nativeBool` — see Native element interop |
 
-Slider, Input, TextArea, Dialog, Sheet, Popover, List, Swiper, Draggable, Sortable, SwipeAction and the
-rest are not built yet.
+Slider, Dialog, Sheet, Popover, List, Swiper, Draggable, Sortable, SwipeAction and the rest are not built
+yet.
+
+### `input` — and one place this is simpler than lynx-ui
+
+A controlled field's value is pushed through the native editor's own `setValue`, never diffed on as an
+attribute — an attribute would fight the native editor's internal state. Imperative access follows:
+
+```js
+const ref = {};
+m(Input, { inputRef: ref, value, onInput: (v) => { value = v; shim.redraw(); } });
+ref.focus(); // also blur, setValue, getValue, setSelectionRange
+```
+
+lynx-ui wraps this in Main Thread Scripting: its components run on the background thread, so an input
+event lands on the main thread and has to be forwarded, and it marks the field readonly mid-flight so
+typing can't race that hop. A mithril-lynx app in main-thread-owned mode has no hop — the handler already
+runs where the event arrives — so controlled input is simply synchronous here and none of that machinery
+exists. An app that moves its logic to the background thread reintroduces the hop; that's what
+mithril-lynx's named-handler registry is for.
 
 ### `presence` — animating things out
 
@@ -116,11 +135,12 @@ only after the whole tree is diffed, which is too late for a descendant's own `v
 Two things bite when driving Lynx's native elements through Mithril's DOM-shaped API. Both were found on
 device, not in tests:
 
-- **Booleans don't survive as booleans.** mithril-lynx faithfully ports Mithril's HTML semantics, where
-  `attr={true}` becomes `setAttribute(key, "")` — presence is the signal. A native Lynx element reads a
-  typed value instead and treats `""` as not-set, so `visible={true}` on `<overlay>` mounts silently and
-  never appears. Use `nativeBool()` from `mithril-lynx-ui/native` for any boolean bound to a native
-  element.
+- **Every attribute crosses as a string, and booleans don't survive at all.** The shim mirrors the DOM,
+  where `setAttribute` always stringifies — so `maxLength: 10` arrives as `"10"` (native parses it back,
+  fine). Booleans are the fatal case: Mithril's HTML semantics turn `attr={true}` into
+  `setAttribute(key, "")`, because on the web presence *is* the signal, and a native Lynx element reads
+  that empty string as not-set. `visible={true}` on `<overlay>` therefore mounts silently and never
+  appears. Use `nativeBool()` from `mithril-lynx-ui/native` for any boolean bound to a native element.
 - **One copy of mithril-lynx, or nothing works.** The shim keeps its render state (root wrapper, redraw
   function) in module-level variables, so two physical copies means two disconnected renderers: the app
   renders through one, and a library calling `shim.redraw()` hits the other — whose redraw is still

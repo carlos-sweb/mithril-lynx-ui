@@ -1,7 +1,7 @@
 {
   "name": "mithril-lynx-ui-demo",
   "version": "0.0.0",
-  "description": "Gallery app for mithril-lynx-ui — every component, on real hardware. Doubles as the project's visual verification suite (see the project plan, Phase 9).",
+  "description": "Gallery app for mithril-lynx-ui \u2014 every component, on real hardware. Doubles as the project's visual verification suite (see the project plan, Phase 9).",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "mithril": "2.3.8",
-    "mithril-lynx": "^0.0.3",
+    "mithril-lynx": "file:../../mithril-lynx",
     "mithril-lynx-ui": "file:.."
   },
   "devDependencies": {

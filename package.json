@@ -41,6 +41,10 @@
     "./presence": {
       "types": "./presence.d.ts",
       "default": "./presence.js"
+    },
+    "./input": {
+      "types": "./input.d.ts",
+      "default": "./input.js"
     }
   },
   "files": [
@@ -59,7 +63,9 @@
     "radio-group.d.ts",
     "NOTICE",
     "presence.js",
-    "presence.d.ts"
+    "presence.d.ts",
+    "input.js",
+    "input.d.ts"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

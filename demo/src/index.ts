@@ -5,6 +5,7 @@ import { nativeBool } from "mithril-lynx-ui/native";
 import { Button } from "mithril-lynx-ui/button";
 import { Checkbox, CheckboxIndicator } from "mithril-lynx-ui/checkbox";
 import { Radio, RadioGroup, RadioIndicator } from "mithril-lynx-ui/radio-group";
+import { Input, TextArea } from "mithril-lynx-ui/input";
 import { Presence, PresenceContent } from "mithril-lynx-ui/presence";
 import { Switch, SwitchThumb, SwitchTrack } from "mithril-lynx-ui/switch";
 
@@ -32,7 +33,12 @@ const state = {
   taps: 0,
   card: false,
   presenceLog: [] as string[],
+  nombre: "",
+  notas: "",
 };
+
+// Filled in on mount by <Input>; the Mithril stand-in for useImperativeHandle.
+const nombreRef: Record<string, () => Promise<unknown>> = {};
 
 const TOKENS = [
   { name: "--canvas", modifier: "canvas" },
@@ -218,6 +224,40 @@ const Root: m.Component = {
             ]),
           ),
         ),
+      ),
+
+      ...section(
+        "INPUT · TEXTAREA",
+        m(Input, {
+          className: "ui-input",
+          placeholder: "Tu nombre",
+          maxLength: 20,
+          value: state.nombre,
+          inputRef: nombreRef,
+          onInput: (v: string) => { state.nombre = v; shim.redraw(); },
+        }),
+        // Controlled: what shows below can only track what was typed if the
+        // round trip through state actually works.
+        m(
+          "text",
+          { class: "Row-note" },
+          state.nombre === "" ? "(vacío)" : `valor: "${state.nombre}" · ${state.nombre.length}/20`,
+        ),
+        row(
+          DemoButton("Enfocar", "ui-button--secondary", {
+            onClick: () => { void nombreRef.focus?.(); },
+          }),
+          DemoButton("Limpiar", "ui-button--ghost", {
+            onClick: () => { state.nombre = ""; shim.redraw(); },
+          }),
+        ),
+        m(TextArea, {
+          className: "ui-textarea",
+          placeholder: "Notas (multilínea)",
+          maxLines: 4,
+          onInput: (v: string) => { state.notas = v; shim.redraw(); },
+        }),
+        m("text", { class: "Row-note" }, `notas: ${state.notas.length} caracteres`),
       ),
 
       ...section(

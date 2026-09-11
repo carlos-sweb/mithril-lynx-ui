@@ -1,0 +1,26 @@
+/* Optional default look for ./input.js — opt in with "ui-input" or
+   "ui-textarea". See css/button.css's header for why these defaults exist at
+   all. Both keep their own height: a native editor won't size itself. */
+
+.ui-input,
+.ui-textarea {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background-color: var(--paper);
+  color: var(--content);
+  font-size: 15px;
+}
+
+.ui-input {
+  height: 46px;
+}
+
+.ui-textarea {
+  height: 96px;
+}
+
+.ui-input.ui-readonly,
+.ui-textarea.ui-readonly {
+  opacity: 0.6;
+}
