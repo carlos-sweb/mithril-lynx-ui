@@ -1,0 +1,59 @@
+/* Optional default look for ./button.js — opt in with class "ui-button"
+   (plus a variant). lynx-ui itself ships no CSS; this exists so a
+   mithril-lynx app gets something presentable without setting up a utility
+   framework. Everything below is Luna tokens only, so it inherits whatever
+   theme class (.luna-dark, .luna-light, ...) is on an ancestor.
+
+   The state classes it keys off (.ui-active, .ui-disabled) are emitted by
+   button.js and are identical to lynx-ui's, so a project already styling
+   lynx-ui Buttons can point that same CSS here and skip this file. */
+
+.ui-button {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+  border-radius: 12px;
+  background-color: var(--primary);
+  transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+}
+
+.ui-button.ui-active {
+  opacity: 0.82;
+  transform: scale(0.97);
+}
+
+.ui-button.ui-disabled {
+  opacity: 0.4;
+}
+
+.ui-button-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--primary-content);
+}
+
+/* Secondary: same geometry, quieter surface. */
+.ui-button--secondary {
+  background-color: var(--secondary);
+}
+
+.ui-button--secondary .ui-button-label {
+  color: var(--secondary-content);
+}
+
+/* Ghost: no fill until pressed. */
+.ui-button--ghost {
+  background-color: transparent;
+}
+
+.ui-button--ghost.ui-active {
+  background-color: var(--neutral-film);
+  transform: scale(1);
+  opacity: 1;
+}
+
+.ui-button--ghost .ui-button-label {
+  color: var(--content);
+}

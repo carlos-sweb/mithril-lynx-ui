@@ -1,0 +1,63 @@
+/* Optional default look for ./checkbox.js and ./radio-group.js. Opt in with
+   "ui-checkbox" + "ui-checkbox-indicator", or "ui-radio" +
+   "ui-radio-indicator". See css/button.css's header for why these defaults
+   exist and why the state classes are named as they are.
+
+   Both are built on Button, so they also carry .ui-active/.ui-disabled and
+   inherit button.css's press feedback if the caller opts into it. */
+
+.ui-checkbox,
+.ui-radio {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  border: 2px solid var(--content-subtle);
+  transition: background-color 0.15s ease-out, border-color 0.15s ease-out;
+}
+
+.ui-checkbox {
+  border-radius: 7px;
+}
+
+.ui-radio {
+  border-radius: 12px;
+}
+
+.ui-checkbox.ui-checked,
+.ui-checkbox.ui-indeterminate,
+.ui-radio.ui-checked {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+
+.ui-checkbox.ui-disabled,
+.ui-radio.ui-disabled {
+  opacity: 0.4;
+}
+
+/* The mark itself. Only mounted once there's something to show (see
+   CheckboxIndicator's forceMount), so it can animate in from nothing. */
+.ui-checkbox-indicator,
+.ui-radio-indicator {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+
+.ui-checkbox-indicator-mark {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary-content);
+}
+
+.ui-radio-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  background-color: var(--primary-content);
+}

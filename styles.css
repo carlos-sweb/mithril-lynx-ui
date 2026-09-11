@@ -16,6 +16,10 @@
 
 @import "@lynx-js/luna-styles/index.css";
 
-/* Component CSS is added here, one @import per component, as each ships
-   (Phase 2 onward per the project plan) — e.g.:
-   @import "./button/button.css"; */
+/* Component defaults, one @import per component as each ships. These are
+   OPT-IN at the call site (nothing applies unless you ask for the class,
+   e.g. class: "ui-button"), because lynx-ui itself is headless and an app
+   already styling lynx-ui components should be able to keep its own CSS. */
+@import "./css/button.css";
+@import "./css/switch.css";
+@import "./css/choice.css";

@@ -1,0 +1,153 @@
+/* The one line a consuming app needs: Luna's real theme tokens (and, as
+   components ship, their CSS too). mithril-lynx/plugin bundles exactly one
+   style.css per entry directory and feeds its @imports through rspack's
+   ordinary CSS pipeline, so this resolves out of node_modules like any
+   other CSS import. */
+@import "mithril-lynx-ui/styles.css";
+
+/* Every swatch/surface below deliberately declares an ugly magenta fallback
+   (#ff00ff). Luna's tokens are real values, so if anything renders magenta
+   on device, the @import above did NOT resolve — that's the whole point of
+   this Phase 0 smoke test, and it's meant to be unmissable rather than
+   subtly-wrong. */
+
+.Page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px 40px 16px;
+  background-color: var(--canvas, #ff00ff);
+}
+
+.Title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--content, #ff00ff);
+}
+
+.Subtitle {
+  font-size: 13px;
+  color: var(--content-muted, #ff00ff);
+  margin-top: 4px;
+  margin-bottom: 20px;
+}
+
+.SectionTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--content-subtle, #ff00ff);
+  margin-top: 24px;
+  margin-bottom: 10px;
+}
+
+.Swatches {
+  display: flex;
+  flex-direction: column;
+}
+
+.Swatch {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin-bottom: 6px;
+  background-color: var(--paper, #ff00ff);
+}
+
+.Swatch-chip {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  margin-right: 12px;
+}
+
+.Swatch-chip--canvas { background-color: var(--canvas, #ff00ff); }
+.Swatch-chip--paper { background-color: var(--paper, #ff00ff); }
+.Swatch-chip--primary { background-color: var(--primary, #ff00ff); }
+.Swatch-chip--secondary { background-color: var(--secondary, #ff00ff); }
+.Swatch-chip--neutral { background-color: var(--neutral, #ff00ff); }
+.Swatch-chip--content { background-color: var(--content, #ff00ff); }
+
+.Swatch-label {
+  font-size: 13px;
+  color: var(--content, #ff00ff);
+  flex: 1;
+}
+
+.Demo-button {
+  background-color: var(--primary, #ff00ff);
+  border-radius: 10px;
+  padding: 12px 20px;
+  align-self: flex-start;
+  margin-top: 6px;
+}
+
+.Demo-button-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary-content, #ff00ff);
+}
+
+/* <overlay> renders above the normal view tree and takes no layout space
+   itself; its first child is measured against a screen-sized surface (see
+   lynx-api-docs elements/overlay.md). */
+.Overlay-scrim {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--backdrop, #ff00ff);
+}
+
+.Overlay-panel {
+  width: 78vw;
+  border-radius: 16px;
+  padding: 22px;
+  background-color: var(--paper-clear, #ff00ff);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.Overlay-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--content, #ff00ff);
+  margin-bottom: 6px;
+}
+
+.Overlay-text {
+  font-size: 13px;
+  color: var(--content-muted, #ff00ff);
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+/* Gallery layout helpers (the components themselves are styled by
+   mithril-lynx-ui's own css/, imported above). */
+
+.Row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.Row > view {
+  margin-right: 12px;
+}
+
+.Row-label {
+  font-size: 14px;
+  color: var(--content, #ff00ff);
+  flex: 1;
+}
+
+.Row-note {
+  font-size: 12px;
+  color: var(--content-subtle, #ff00ff);
+  margin-bottom: 4px;
+}

@@ -1,0 +1,51 @@
+/* Optional default look for ./switch.js — opt in with "ui-switch" on the
+   Switch, "ui-switch-track" on SwitchTrack and "ui-switch-thumb" on
+   SwitchThumb. See css/button.css's header for why these defaults exist at
+   all (lynx-ui ships none) and why the state classes are named as they are.
+
+   The thumb slides via transform rather than by changing its offset, on
+   lynx-api-docs's own performance guidance: transform/opacity are the
+   GPU-accelerated properties. */
+
+.ui-switch {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.ui-switch.ui-disabled {
+  opacity: 0.4;
+}
+
+.ui-switch-track {
+  width: 52px;
+  height: 32px;
+  border-radius: 16px;
+  padding: 3px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background-color: var(--neutral-faint);
+  transition: background-color 0.18s ease-out;
+}
+
+.ui-switch-track.ui-checked {
+  background-color: var(--primary);
+}
+
+.ui-switch-thumb {
+  width: 26px;
+  height: 26px;
+  border-radius: 13px;
+  background-color: var(--paper-clear);
+  transform: translateX(0);
+  transition: transform 0.18s ease-out;
+}
+
+.ui-switch-thumb.ui-checked {
+  transform: translateX(20px);
+}
+
+.ui-switch-thumb.ui-active {
+  opacity: 0.9;
+}
