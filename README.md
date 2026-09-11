@@ -74,13 +74,27 @@ m(Switch, { defaultChecked: true }, ({ checked, active, disabled }) =>
 | `mithril-lynx-ui/switch` | `Switch`, `SwitchTrack`, `SwitchThumb` |
 | `mithril-lynx-ui/checkbox` | `Checkbox`, `CheckboxIndicator` |
 | `mithril-lynx-ui/radio-group` | `RadioGroup`, `Radio`, `RadioIndicator` |
+| `mithril-lynx-ui/draggable` | `Draggable` |
 | `mithril-lynx-ui/input` | `Input`, `TextArea` |
 | `mithril-lynx-ui/presence` | `Presence`, `PresenceContent`, `usePresence`, `presenceClasses` |
 | `mithril-lynx-ui/scope` | `createScope` — the Context substitute described below |
 | `mithril-lynx-ui/native` | `nativeBool` — see Native element interop |
 
-Slider, Dialog, Sheet, Popover, List, Swiper, Draggable, Sortable, SwipeAction and the rest are not built
-yet.
+Slider, Dialog, Sheet, Popover, List, Swiper, Sortable, SwipeAction and the rest are not built yet.
+
+### `draggable` — where the MTS bet pays off
+
+lynx-ui's Draggable carries twelve `'main thread'` directives: the whole drag loop (read the touch point,
+compute the delta, clamp it, write the transform) runs on the main thread, because a drag that pays a
+thread hop per frame doesn't feel like one. A mithril-lynx app in main-thread-owned mode is already
+there — the handler runs on the same thread the touch event arrives on — so it's just ordinary code here.
+Not a workaround for missing MTS: the reason MTS exists in the original doesn't apply.
+
+The position is written straight to the node (a diff per touchmove would be wasted work) — and also kept
+in the rendered `style`, which matters more than it looks: a redraw mid-drag (an app mirroring
+`onDragging` into its own state causes exactly this) re-applies `style` from attrs, and without the
+transform there too, Mithril's own diff strips it back out mid-gesture. Found on device, not in tests —
+the reported offset kept climbing while the element sat still.
 
 ### `input` — and one place this is simpler than lynx-ui
 

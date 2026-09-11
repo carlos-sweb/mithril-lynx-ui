@@ -1,0 +1,16 @@
+/* Optional default look for ./draggable.js — opt in with "ui-draggable".
+   See css/button.css's header for why these defaults exist at all.
+
+   No transition on transform: the drag writes it every touchmove, and a
+   transition would fight that by animating toward each frame's value instead
+   of tracking the finger. The lift on .ui-dragging animates the properties
+   that aren't being driven by the gesture. */
+
+.ui-draggable {
+  transition: box-shadow 0.15s ease-out, opacity 0.15s ease-out;
+}
+
+.ui-draggable.ui-dragging {
+  opacity: 0.92;
+  box-shadow: 0 6px 18px var(--backdrop-subtle);
+}

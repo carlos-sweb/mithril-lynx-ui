@@ -45,6 +45,10 @@
     "./input": {
       "types": "./input.d.ts",
       "default": "./input.js"
+    },
+    "./draggable": {
+      "types": "./draggable.d.ts",
+      "default": "./draggable.js"
     }
   },
   "files": [
@@ -65,7 +69,9 @@
     "presence.js",
     "presence.d.ts",
     "input.js",
-    "input.d.ts"
+    "input.d.ts",
+    "draggable.js",
+    "draggable.d.ts"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

@@ -5,6 +5,7 @@ import { nativeBool } from "mithril-lynx-ui/native";
 import { Button } from "mithril-lynx-ui/button";
 import { Checkbox, CheckboxIndicator } from "mithril-lynx-ui/checkbox";
 import { Radio, RadioGroup, RadioIndicator } from "mithril-lynx-ui/radio-group";
+import { Draggable } from "mithril-lynx-ui/draggable";
 import { Input, TextArea } from "mithril-lynx-ui/input";
 import { Presence, PresenceContent } from "mithril-lynx-ui/presence";
 import { Switch, SwitchThumb, SwitchTrack } from "mithril-lynx-ui/switch";
@@ -35,6 +36,7 @@ const state = {
   presenceLog: [] as string[],
   nombre: "",
   notas: "",
+  drag: { x: 0, y: 0 },
 };
 
 // Filled in on mount by <Input>; the Mithril stand-in for useImperativeHandle.
@@ -224,6 +226,29 @@ const Root: m.Component = {
             ]),
           ),
         ),
+      ),
+
+      ...section(
+        "DRAGGABLE",
+        m("view", { class: "DragTrack" }, [
+          m(
+            Draggable,
+            {
+              className: "ui-draggable DragHandle",
+              // "immediate" rather than the longpress default, so the demo
+              // reacts to a plain swipe.
+              trigger: "immediate",
+              allowedDirection: "all",
+              minTranslateX: 0,
+              maxTranslateX: 200,
+              minTranslateY: 0,
+              maxTranslateY: 0,
+              onDragging: (t: { x: number; y: number }) => { state.drag = t; shim.redraw(); },
+            },
+            m("text", { class: "DragHandle-label" }, "arrástrame"),
+          ),
+        ]),
+        m("text", { class: "Row-note" }, `x: ${Math.round(state.drag.x)}px (tope 200)`),
       ),
 
       ...section(
