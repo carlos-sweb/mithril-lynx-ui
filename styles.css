@@ -1,0 +1,21 @@
+/* mithril-lynx-ui/styles.css — one import gives a consuming app everything:
+   Luna's real theme tokens (unmodified, straight from @lynx-js/luna-styles)
+   plus every mithril-lynx-ui component's own CSS, as components ship.
+
+   Usage in a consuming app's own style.css (mithril-lynx/plugin bundles
+   exactly one style.css per entry — see that plugin's own docs):
+
+     @import "mithril-lynx-ui/styles.css";
+
+   A theme class (one of .luna-light/.luna-dark/.lunaris-light/.lunaris-dark)
+   must be applied to some ancestor of any component using these tokens —
+   luna-styles defines its custom properties scoped to those class selectors,
+   not :root, so e.g. index.ts's withTheme()-style root <view> needs
+   class="luna-dark" (or whichever) rather than the tokens applying globally
+   by default. See NOTICE for attribution. */
+
+@import "@lynx-js/luna-styles/index.css";
+
+/* Component CSS is added here, one @import per component, as each ships
+   (Phase 2 onward per the project plan) — e.g.:
+   @import "./button/button.css"; */

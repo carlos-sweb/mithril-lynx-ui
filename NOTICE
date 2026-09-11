@@ -1,0 +1,15 @@
+mithril-lynx-ui includes and adapts material from the following Apache-2.0
+licensed projects (The Lynx Authors, https://github.com/lynx-family):
+
+- @lynx-js/luna-styles (https://github.com/lynx-family/lynx-ui/tree/main/luna/packages/luna-styles)
+  Theme CSS custom properties ("Luna" tokens) — used unmodified as a direct
+  dependency (see styles.css).
+
+- @lynx-js/lynx-ui (https://github.com/lynx-family/lynx-ui)
+  Component CSS is adapted (visual behavior re-implemented for Mithril's
+  component model; CSS selectors/rules reused or adapted where they target
+  the same underlying native elements) — see each component's own file
+  header for what was reused verbatim vs. re-authored against the same Luna
+  tokens.
+
+mithril-lynx-ui itself is licensed separately — see LICENSE.
