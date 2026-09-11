@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "mithril": "2.3.8",
-    "mithril-lynx": "file:../../mithril-lynx",
+    "mithril-lynx": "^0.0.4",
     "mithril-lynx-ui": "file:.."
   },
   "devDependencies": {

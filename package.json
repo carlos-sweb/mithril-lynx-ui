@@ -75,14 +75,14 @@
   },
   "peerDependencies": {
     "mithril": "2.3.8",
-    "mithril-lynx": "^0.0.3"
+    "mithril-lynx": "^0.0.4"
   },
   "dependencies": {
     "@lynx-js/luna-styles": "^0.2.2"
   },
   "devDependencies": {
     "mithril": "2.3.8",
-    "mithril-lynx": "^0.0.3",
+    "mithril-lynx": "^0.0.4",
     "@lynx-js/testing-environment": "npm:@lynx-js/testing-environment-canary@0.3.2-canary-20260803-5a891c73",
     "@lynx-js/type-element-api": "0.0.9",
     "@lynx-js/types": "4.1.0",
