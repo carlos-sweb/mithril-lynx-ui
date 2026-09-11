@@ -233,3 +233,39 @@
   margin-bottom: 14px;
   flex-shrink: 0;
 }
+
+.SwipeList {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.SwipeRow {
+  height: 56px;
+  margin-bottom: 1px;
+}
+
+.SwipeRow-display {
+  /* SwipeAction sizes its own visible viewport to whatever this content
+     naturally measures (see swipe-action.js's header) — width:100% resolves
+     against an unconstrained auto-sized parent and collapses to content
+     size, so a full-width row needs an explicit width instead. 32px matches
+     the page's own left+right padding (see the page rule near the top of
+     this file). */
+  width: calc(100vw - 32px);
+  height: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0 16px;
+  background-color: var(--paper, #ff00ff);
+}
+
+.SwipeRow-label {
+  font-size: 14px;
+  color: var(--content, #ff00ff);
+}
+
+.SwipeRow-actionLabel {
+  font-size: 13px;
+  font-weight: 600;
+}

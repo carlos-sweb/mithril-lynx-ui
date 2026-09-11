@@ -9,6 +9,7 @@ import { Draggable } from "mithril-lynx-ui/draggable";
 import { Input, TextArea } from "mithril-lynx-ui/input";
 import { Presence, PresenceContent } from "mithril-lynx-ui/presence";
 import { SliderIndicator, SliderRoot, SliderThumb, SliderTrack } from "mithril-lynx-ui/slider";
+import { SwipeAction } from "mithril-lynx-ui/swipe-action";
 import { Switch, SwitchThumb, SwitchTrack } from "mithril-lynx-ui/switch";
 
 import "./style.css";
@@ -40,6 +41,8 @@ const state = {
   drag: { x: 0, y: 0 },
   volume: 0.4,
   range: [0.2, 0.7] as [number, number],
+  swipeItems: ["Correo de bienvenida", "Recordatorio de pago", "Nueva actualización"],
+  swipeLog: [] as string[],
 };
 
 // Filled in on mount by <Input>; the Mithril stand-in for useImperativeHandle.
@@ -287,6 +290,41 @@ const Root: m.Component = {
           ),
         ]),
         m("text", { class: "Row-note" }, `x: ${Math.round(state.drag.x)}px (tope 200)`),
+      ),
+
+      ...section(
+        "SWIPE ACTION",
+        m(
+          "text",
+          { class: "Row-note" },
+          state.swipeItems.length === 0
+            ? "(sin elementos — recarga para reiniciar la demo)"
+            : `${state.swipeItems.length} elemento(s) — desliza una fila a la izquierda`,
+        ),
+        m(
+          "view",
+          { class: "SwipeList" },
+          state.swipeItems.map((label) =>
+            m(SwipeAction, {
+              key: label,
+              className: "SwipeRow",
+              estimatedActionAreaSize: 72,
+              displayArea: m("view", { class: "SwipeRow-display" }, m("text", { class: "SwipeRow-label" }, label)),
+              actionArea: m("text", { class: "SwipeRow-actionLabel" }, "Eliminar"),
+              onSwipeStart: () => { state.swipeLog.push(`inicio: ${label}`); shim.redraw(); },
+              onAction: () => {
+                state.swipeItems = state.swipeItems.filter((item) => item !== label);
+                state.swipeLog.push(`eliminado: ${label}`);
+                shim.redraw();
+              },
+            }),
+          ),
+        ),
+        m(
+          "text",
+          { class: "Row-note" },
+          state.swipeLog.length === 0 ? "sin eventos aún" : state.swipeLog.slice(-3).join(" · "),
+        ),
       ),
 
       ...section(

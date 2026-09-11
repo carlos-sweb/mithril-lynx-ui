@@ -53,6 +53,10 @@
     "./slider": {
       "types": "./slider.d.ts",
       "default": "./slider.js"
+    },
+    "./swipe-action": {
+      "types": "./swipe-action.d.ts",
+      "default": "./swipe-action.js"
     }
   },
   "files": [
@@ -78,7 +82,9 @@
     "draggable.d.ts",
     "slider.js",
     "slider.d.ts",
-    "internal/slider-utils.js"
+    "internal/slider-utils.js",
+    "swipe-action.js",
+    "swipe-action.d.ts"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
