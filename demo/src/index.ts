@@ -1,5 +1,6 @@
 import m from "mithril";
 import shim from "mithril-lynx";
+import { nativeBool } from "mithril-lynx-ui/native";
 
 import { Button } from "mithril-lynx-ui/button";
 import { Checkbox, CheckboxIndicator } from "mithril-lynx-ui/checkbox";
@@ -50,6 +51,11 @@ function row(...children: m.Children[]) {
   return m("view", { class: "Row" }, children);
 }
 
+/** A row that lives in a mapped list, so it carries the key instead of its children. */
+function keyedRow(key: string, ...children: m.Children[]) {
+  return m("view", { class: "Row", key }, children);
+}
+
 function DemoButton(text: string, variant: string, attrs: Record<string, unknown> = {}) {
   return m(
     Button,
@@ -58,9 +64,34 @@ function DemoButton(text: string, variant: string, attrs: Record<string, unknown
   );
 }
 
+function sectionTheme() {
+  return section(
+    "TEMA · OVERLAY",
+    row(
+      DemoButton(state.theme === "luna-dark" ? "Tema claro" : "Tema oscuro", "ui-button--secondary", {
+        onClick: () => {
+          state.theme = state.theme === "luna-dark" ? "luna-light" : "luna-dark";
+          shim.redraw();
+        },
+      }),
+      DemoButton("Abrir overlay", "", {
+        onClick: () => { state.overlayOpen = true; shim.redraw(); },
+      }),
+    ),
+  );
+}
+
 const Root: m.Component = {
   view() {
+    // <page> is overflow:hidden in Lynx and never scrolls itself, so a
+    // gallery that outgrows the viewport needs an explicit <scroll-view>
+    // (see lynx-api-docs elements/scroll-view.md). The <overlay> below
+    // deliberately stays OUTSIDE it: overlay renders against its own
+    // screen-sized surface, and nesting it in the scroll context would put
+    // it in the wrong reference frame.
     return m("view", { class: `Page ${state.theme}` }, [
+      m("scroll-view", { "scroll-orientation": "vertical", class: "Scroll" }, [
+      m("view", { class: "ScrollContent" }, [
       m("text", { class: "Title" }, "mithril-lynx-ui"),
       m("text", { class: "Subtitle" }, `Galería de componentes · ${state.theme}`),
 
@@ -138,10 +169,11 @@ const Root: m.Component = {
             onValueChange: (v: string) => { state.plan = v; shim.redraw(); },
           },
           PLANS.map((plan) =>
-            row(
+            keyedRow(
+              plan.value,
               m(
                 Radio,
-                { className: "ui-radio", value: plan.value, key: plan.value },
+                { className: "ui-radio", value: plan.value },
                 m(RadioIndicator, { className: "ui-radio-indicator" }),
               ),
               label(plan.label),
@@ -164,28 +196,17 @@ const Root: m.Component = {
         ),
       ),
 
-      ...section(
-        "TEMA · OVERLAY",
-        row(
-          DemoButton(state.theme === "luna-dark" ? "Tema claro" : "Tema oscuro", "ui-button--secondary", {
-            onClick: () => {
-              state.theme = state.theme === "luna-dark" ? "luna-light" : "luna-dark";
-              shim.redraw();
-            },
-          }),
-          DemoButton("Abrir overlay", "", {
-            onClick: () => { state.overlayOpen = true; shim.redraw(); },
-          }),
-        ),
-      ),
-
+      ...sectionTheme(),
+      ]),
+      ]),
       // <overlay> takes no layout space where it's authored and renders its
       // first child against a screen-sized surface. `visible` drives it;
       // binddismissoverlay keeps our state in sync with a native dismissal.
       m(
         "overlay",
         {
-          visible: state.overlayOpen,
+          // Not a plain boolean — see nativeBool()'s header.
+          visible: nativeBool(state.overlayOpen),
           binddismissoverlay: () => { state.overlayOpen = false; shim.redraw(); },
         },
         m("view", { class: "Overlay-scrim" }, [

@@ -27,13 +27,14 @@
 // Provider's own siblings run, the marker for every Provider nested inside
 // it has already popped.
 //
-// The real children are kept as one nested array (`[vnode.children,
-// m(PopMarker)]`, not flattened) so Mithril's "all keyed or none" sibling
-// rule is checked separately per nesting level — a keyed list passed as
-// Provider's children stays keyed among itself, unaffected by the unkeyed
-// PopMarker one level up. (A PopMarker keyed to match a keyed children
-// array isn't attempted here — it doesn't need a key at all with the
-// children kept nested rather than concatenated flat.)
+// The real children go inside an explicit m.fragment rather than being
+// concatenated next to the marker. Mithril enforces "all keyed or none"
+// across a sibling list, and a bare nested array does NOT open a new
+// sibling list — passing keyed children alongside the unkeyed PopMarker
+// threw "In fragments, vnodes must either all have keys or none have keys"
+// on device. A fragment does open one: the outer list is then just
+// [fragment, marker] (neither keyed), while the children keep their own
+// key domain inside it.
 //
 // Each createScope() call is independent: a useScope() only ever resolves
 // against Provider instances created by that same createScope() call.
@@ -58,7 +59,7 @@ export function createScope() {
 	const Provider = {
 		view(vnode) {
 			stack.push(vnode.attrs.value);
-			return [vnode.children, m(PopMarker)];
+			return [m.fragment({}, vnode.children), m(PopMarker)];
 		},
 	};
 

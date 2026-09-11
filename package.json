@@ -33,6 +33,10 @@
     "./radio-group": {
       "types": "./radio-group.d.ts",
       "default": "./radio-group.js"
+    },
+    "./native": {
+      "types": "./internal/native.d.ts",
+      "default": "./internal/native.js"
     }
   },
   "files": [

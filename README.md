@@ -95,6 +95,21 @@ scope.useScope();                               // read, from any descendant's v
 It's implemented through `view()` ordering rather than lifecycle hooks: `oncreate`/`onupdate` are flushed
 only after the whole tree is diffed, which is too late for a descendant's own `view()` to observe.
 
+## Native element interop
+
+Two things bite when driving Lynx's native elements through Mithril's DOM-shaped API. Both were found on
+device, not in tests:
+
+- **Booleans don't survive as booleans.** mithril-lynx faithfully ports Mithril's HTML semantics, where
+  `attr={true}` becomes `setAttribute(key, "")` — presence is the signal. A native Lynx element reads a
+  typed value instead and treats `""` as not-set, so `visible={true}` on `<overlay>` mounts silently and
+  never appears. Use `nativeBool()` from `mithril-lynx-ui/native` for any boolean bound to a native
+  element.
+- **Several elements are opt-in native artifacts.** `<overlay>`, `<input>`, `<textarea>` and friends are
+  not in the core `lynx` Maven artifact. Without the matching `org.lynxsdk.lynx:xelement-*` dependency
+  (plus `XElementBehaviors().create()` registered on the `LynxViewBuilder`) they mount without error and
+  render nothing at all. `demo-android/app/build.gradle.kts` lists the ones this project needs.
+
 ## Known gaps
 
 - **Main Thread Scripting.** lynx-ui uses compiler-transformed cross-thread closures for things like

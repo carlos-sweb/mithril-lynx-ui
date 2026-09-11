@@ -88,6 +88,33 @@ describe("scope.js", () => {
     expect(seen.at(-1)).toBe("outer");
   });
 
+  it("accepts keyed children without tripping Mithril's all-keyed-or-none rule", () => {
+    // Regression: the Provider used to put its own (unkeyed) pop marker in the
+    // same sibling list as the caller's children, which threw "In fragments,
+    // vnodes must either all have keys or none have keys" as soon as those
+    // children were keyed — caught on device, not by the original tests.
+    const { Provider, useScope } = createScope<string>();
+    const seen: (string | undefined)[] = [];
+    const Item = {
+      view: () => {
+        seen.push(useScope());
+        return m("text");
+      },
+    };
+
+    expect(() =>
+      mountRoot(() =>
+        m(
+          Provider,
+          { value: "v" },
+          ["a", "b", "c"].map((id) => m(Item, { key: id })),
+        ),
+      ),
+    ).not.toThrow();
+
+    expect(seen).toEqual(["v", "v", "v"]);
+  });
+
   it("two independent scopes never see each other's Providers", () => {
     const scopeA = createScope<string>();
     const scopeB = createScope<string>();

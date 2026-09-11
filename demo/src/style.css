@@ -12,11 +12,14 @@
    subtly-wrong. */
 
 .Page {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  padding: 24px 16px 40px 16px;
   background-color: var(--canvas, #ff00ff);
+}
+
+.ScrollContent {
+  padding: 24px 16px 40px 16px;
 }
 
 .Title {
@@ -150,4 +153,23 @@
   font-size: 12px;
   color: var(--content-subtle, #ff00ff);
   margin-bottom: 4px;
+}
+
+/* <page> never scrolls in Lynx; the gallery's own scroll container.
+   The content goes in a plain child view rather than being laid out by the
+   scroll-view itself — as a direct flex child of the scroller, every row got
+   shrunk to fit the viewport instead of keeping its natural height, and the
+   sections visibly overlapped. */
+.Scroll {
+  flex: 1;
+}
+
+.ScrollContent {
+  display: flex;
+  flex-direction: column;
+}
+
+.Row,
+.Swatch {
+  flex-shrink: 0;
 }
