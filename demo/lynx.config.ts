@@ -11,6 +11,22 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   source: {
+    // mithril-lynx keeps its render state (root wrapper, redraw fn) in
+    // module-level variables, so two physical copies means two disconnected
+    // renderers: the app renders through one and any library calling
+    // shim.redraw() hits the other, whose redraw is still null — a silent
+    // no-op, no error. That happens here because mithril-lynx-ui is linked in
+    // and resolves its own nested copy. Forcing one copy is the same fix
+    // mithril-lynx/plugin already applies to `mithril` itself.
+    // The trailing $ makes this an exact match on the bare specifier only,
+    // so "mithril-lynx/main-thread" and friends still resolve through the
+    // package's own exports map.
+    alias: {
+      "mithril-lynx$": path.resolve(
+        projectRoot,
+        "node_modules/mithril-lynx/src/lynx-mithril-shim.js",
+      ),
+    },
     entry: {
       "main-thread": path.join(projectRoot, "src/main-thread.ts"),
     },

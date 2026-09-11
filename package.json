@@ -37,6 +37,10 @@
     "./native": {
       "types": "./internal/native.d.ts",
       "default": "./internal/native.js"
+    },
+    "./presence": {
+      "types": "./presence.d.ts",
+      "default": "./presence.js"
     }
   },
   "files": [
@@ -53,7 +57,9 @@
     "checkbox.d.ts",
     "radio-group.js",
     "radio-group.d.ts",
-    "NOTICE"
+    "NOTICE",
+    "presence.js",
+    "presence.d.ts"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

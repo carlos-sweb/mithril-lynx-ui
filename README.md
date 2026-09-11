@@ -74,10 +74,26 @@ m(Switch, { defaultChecked: true }, ({ checked, active, disabled }) =>
 | `mithril-lynx-ui/switch` | `Switch`, `SwitchTrack`, `SwitchThumb` |
 | `mithril-lynx-ui/checkbox` | `Checkbox`, `CheckboxIndicator` |
 | `mithril-lynx-ui/radio-group` | `RadioGroup`, `Radio`, `RadioIndicator` |
+| `mithril-lynx-ui/presence` | `Presence`, `PresenceContent`, `usePresence`, `presenceClasses` |
 | `mithril-lynx-ui/scope` | `createScope` — the Context substitute described below |
+| `mithril-lynx-ui/native` | `nativeBool` — see Native element interop |
 
 Slider, Input, TextArea, Dialog, Sheet, Popover, List, Swiper, Draggable, Sortable, SwipeAction and the
 rest are not built yet.
+
+### `presence` — animating things out
+
+An element removed from the tree can't animate on its way out, because it's already gone. `Presence`
+keeps it mounted until its leave animation actually reports finished, and falls back to a frame watchdog
+when there's no animation at all. It's what Dialog, Sheet and Popover will be built on.
+
+```js
+m(Presence, { show: open, onClose: () => {} },
+  m(PresenceContent, { className: "card ui-presence-scale" }, ...));
+```
+
+`PresenceContent` applies lynx-ui's animation class contract (`ui-entering`, `ui-leaving`, `ui-animating`,
+`ui-open`, `ui-closed`) and wires the six animation/transition events the machine listens to.
 
 ## `scope` — why this exists
 
@@ -105,6 +121,12 @@ device, not in tests:
   typed value instead and treats `""` as not-set, so `visible={true}` on `<overlay>` mounts silently and
   never appears. Use `nativeBool()` from `mithril-lynx-ui/native` for any boolean bound to a native
   element.
+- **One copy of mithril-lynx, or nothing works.** The shim keeps its render state (root wrapper, redraw
+  function) in module-level variables, so two physical copies means two disconnected renderers: the app
+  renders through one, and a library calling `shim.redraw()` hits the other — whose redraw is still
+  `null`, making it a silent no-op with no error at all. Any app consuming a linked or nested copy needs
+  an exact alias (see `demo/lynx.config.ts`); `mithril-lynx/plugin` already does this for `mithril`
+  itself and arguably should for `mithril-lynx` too.
 - **Several elements are opt-in native artifacts.** `<overlay>`, `<input>`, `<textarea>` and friends are
   not in the core `lynx` Maven artifact. Without the matching `org.lynxsdk.lynx:xelement-*` dependency
   (plus `XElementBehaviors().create()` registered on the `LynxViewBuilder`) they mount without error and

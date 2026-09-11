@@ -1,0 +1,47 @@
+/* Optional default enter/leave animations for ./presence.js — opt in with
+   "ui-presence-fade" or "ui-presence-scale" on a PresenceContent.
+
+   These exist mainly so Presence is usable out of the box, and so its
+   contract is demonstrable: the leave animation is the reason the element
+   stays mounted at all. Presence itself needs no CSS — with none, its
+   24-frame watchdog just advances the state immediately and the element
+   appears/disappears without animating.
+
+   The class contract (.ui-entering/.ui-leaving/.ui-animating/.ui-open/
+   .ui-closed) is lynx-ui's, so CSS written against it works unchanged. */
+
+@keyframes ui-presence-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ui-presence-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.ui-presence-fade.ui-entering {
+  animation: ui-presence-fade-in 0.2s ease-out forwards;
+}
+
+.ui-presence-fade.ui-leaving {
+  animation: ui-presence-fade-out 0.2s ease-in forwards;
+}
+
+@keyframes ui-presence-scale-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes ui-presence-scale-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.92); }
+}
+
+.ui-presence-scale.ui-entering {
+  animation: ui-presence-scale-in 0.22s ease-out forwards;
+}
+
+.ui-presence-scale.ui-leaving {
+  animation: ui-presence-scale-out 0.18s ease-in forwards;
+}

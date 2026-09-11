@@ -173,3 +173,25 @@
 .Swatch {
   flex-shrink: 0;
 }
+
+.PresenceCard {
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 10px;
+  background-color: var(--paper, #ff00ff);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.PresenceCard-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--content, #ff00ff);
+  margin-bottom: 4px;
+}
+
+.PresenceCard-text {
+  font-size: 13px;
+  color: var(--content-muted, #ff00ff);
+}

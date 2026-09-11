@@ -5,6 +5,7 @@ import { nativeBool } from "mithril-lynx-ui/native";
 import { Button } from "mithril-lynx-ui/button";
 import { Checkbox, CheckboxIndicator } from "mithril-lynx-ui/checkbox";
 import { Radio, RadioGroup, RadioIndicator } from "mithril-lynx-ui/radio-group";
+import { Presence, PresenceContent } from "mithril-lynx-ui/presence";
 import { Switch, SwitchThumb, SwitchTrack } from "mithril-lynx-ui/switch";
 
 import "./style.css";
@@ -29,6 +30,8 @@ const state = {
   partialChecked: false,
   plan: "mensual",
   taps: 0,
+  card: false,
+  presenceLog: [] as string[],
 };
 
 const TOKENS = [
@@ -214,6 +217,38 @@ const Root: m.Component = {
               m("text", { class: "Swatch-label" }, token.name),
             ]),
           ),
+        ),
+      ),
+
+      ...section(
+        "PRESENCE",
+        row(
+          DemoButton(state.card ? "Ocultar tarjeta" : "Mostrar tarjeta", "", {
+            onClick: () => { state.card = !state.card; shim.redraw(); },
+          }),
+        ),
+        // The leave animation is why the card is still mounted after `show`
+        // goes false — that is the whole contract Presence exists for.
+        m(
+          Presence,
+          {
+            show: state.card,
+            onOpen: () => { state.presenceLog.push("onOpen"); shim.redraw(); },
+            onClose: () => { state.presenceLog.push("onClose"); shim.redraw(); },
+          },
+          m(PresenceContent, { className: "PresenceCard ui-presence-scale" }, [
+            m("text", { class: "PresenceCard-title" }, "Tarjeta animada"),
+            m(
+              "text",
+              { class: "PresenceCard-text" },
+              "Entra y sale con animación; Presence la mantiene montada hasta que la de salida termina.",
+            ),
+          ]),
+        ),
+        m(
+          "text",
+          { class: "Row-note" },
+          state.presenceLog.length === 0 ? "sin eventos aún" : state.presenceLog.join(" · "),
         ),
       ),
 
