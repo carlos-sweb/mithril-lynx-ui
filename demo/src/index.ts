@@ -11,6 +11,8 @@ import { FormField, FormRoot, FormSubmitButton } from "mithril-lynx-ui/form";
 import { Input, TextArea } from "mithril-lynx-ui/input";
 import { InputOTP, InputOTPSlot } from "mithril-lynx-ui/input-otp";
 import { LazyComponent } from "mithril-lynx-ui/lazy-component";
+import { List } from "mithril-lynx-ui/list";
+import type { ListRef } from "mithril-lynx-ui/list";
 import { Presence, PresenceContent } from "mithril-lynx-ui/presence";
 import { SliderIndicator, SliderRoot, SliderThumb, SliderTrack } from "mithril-lynx-ui/slider";
 import { SortableItem, SortableRoot } from "mithril-lynx-ui/sortable";
@@ -61,10 +63,14 @@ const state = {
   dialogLog: [] as string[],
   otpValue: "",
   otpLog: [] as string[],
+  listItems: Array.from({ length: 40 }, (_, i) => ({ id: String(i), label: `Elemento ${i + 1}` })),
+  listLog: [] as string[],
 };
 
 // Filled in on mount by <Input>; the Mithril stand-in for useImperativeHandle.
 const nombreRef: Record<string, () => Promise<unknown>> = {};
+// Filled in on mount by <List>.
+const listRef: Partial<ListRef> = {};
 
 const TOKENS = [
   { name: "--canvas", modifier: "canvas" },
@@ -579,6 +585,36 @@ const Root: m.Component = {
         ),
         m("text", { class: "Row-note" }, `valor: ${state.otpValue || "(vacío)"}`),
         m("text", { class: "Row-note" }, state.otpLog.length === 0 ? "sin eventos aún" : state.otpLog[state.otpLog.length - 1]),
+      ),
+
+      ...section(
+        "LIST",
+        // A fixed height, not `100%`/unbounded: this List is itself a
+        // natively-scrolling element nested inside the page's own outer
+        // <scroll-view> — without a bounded height it would either collapse
+        // to zero or fight the outer scroll for the gesture.
+        m(List, {
+          className: "ListBox",
+          style: { width: "100%", height: "260px" },
+          items: state.listItems,
+          mainAxisGap: 1,
+          listRef: listRef,
+          renderItem: (item: { id: string; label: string }) =>
+            m("view", { class: "ListRow" }, m("text", { class: "ListRow-label" }, item.label)),
+          itemKey: (item: { id: string; label: string }) => item.id,
+        }),
+        row(
+          DemoButton("Ir al final", "ui-button--secondary", {
+            onClick: () => { void listRef.scrollTo?.(state.listItems.length - 1, { smooth: true }); },
+          }),
+          DemoButton("Agregar", "ui-button--ghost", {
+            onClick: () => {
+              state.listItems = [...state.listItems, { id: String(state.listItems.length), label: `Elemento ${state.listItems.length + 1}` }];
+              shim.redraw();
+            },
+          }),
+        ),
+        m("text", { class: "Row-note" }, `${state.listItems.length} elementos — desliza dentro del recuadro para probar el reciclado nativo`),
       ),
 
       ...sectionTheme(),

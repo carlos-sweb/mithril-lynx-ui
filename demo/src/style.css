@@ -310,3 +310,23 @@
   font-size: 14px;
   color: var(--content, #ff00ff);
 }
+
+.ListBox {
+  border-radius: 10px;
+  border: 1px solid var(--line, #ff00ff);
+  overflow: hidden;
+}
+
+.ListRow {
+  height: 48px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0 16px;
+  background-color: var(--paper, #ff00ff);
+}
+
+.ListRow-label {
+  font-size: 14px;
+  color: var(--content, #ff00ff);
+}

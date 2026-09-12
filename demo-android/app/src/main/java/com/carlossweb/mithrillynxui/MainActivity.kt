@@ -1,6 +1,7 @@
 package com.carlossweb.mithrillynxui
 
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.lynx.tasm.LynxViewBuilder
@@ -24,6 +25,11 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+
+        // Dev/QA convenience only — this is the on-device verification
+        // gallery, not a shipped app, and long device-testing sessions
+        // otherwise keep fighting the screen lock.
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val builder = LynxViewBuilder()
         builder.addBehaviors(XElementBehaviors().create())

@@ -77,6 +77,10 @@
     "./input-otp": {
       "types": "./input-otp.d.ts",
       "default": "./input-otp.js"
+    },
+    "./list": {
+      "types": "./list.d.ts",
+      "default": "./list.js"
     }
   },
   "files": [
@@ -115,7 +119,9 @@
     "dialog.js",
     "dialog.d.ts",
     "input-otp.js",
-    "input-otp.d.ts"
+    "input-otp.d.ts",
+    "list.js",
+    "list.d.ts"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
