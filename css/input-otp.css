@@ -1,0 +1,60 @@
+/* Optional default look for ./input-otp.js — opt in with "ui-input-otp" on
+   InputOTP and "ui-input-otp-slot" on each InputOTPSlot. lynx-ui itself
+   ships no CSS; this exists so a mithril-lynx app gets a presentable PIN/OTP
+   field without a utility framework. Luna tokens only.
+
+   display:flex + gap for the row, NOT the web habit of margins between
+   slots — same lesson as dialog.css's centering fix: check lynx-api-docs'
+   flex-layout.md before reaching for a web pattern from memory. */
+
+.ui-input-otp {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.ui-input-otp.ui-disabled {
+  opacity: 0.5;
+}
+
+.ui-input-otp-slot {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 44px;
+  height: 52px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background-color: var(--paper);
+}
+
+.ui-input-otp-slot.ui-focused {
+  border-color: var(--primary);
+}
+
+.ui-input-otp-slot.ui-invalid {
+  border-color: var(--danger, #e5484d);
+}
+
+/* Lynx doesn't cascade `color` from this slot's own <view> down to the
+   <text> that actually renders the digit — set directly on the <text>
+   itself (input-otp.js's own "ui-input-otp-char" class), or the digit
+   renders in the platform default color, nearly invisible on a dark slot. */
+.ui-input-otp-char {
+  color: var(--content);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.ui-input-otp-caret {
+  width: 2px;
+  height: 22px;
+  background-color: var(--content);
+  animation: ui-input-otp-blink 1s step-end infinite;
+}
+
+@keyframes ui-input-otp-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}

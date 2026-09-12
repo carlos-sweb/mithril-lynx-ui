@@ -73,6 +73,10 @@
     "./dialog": {
       "types": "./dialog.d.ts",
       "default": "./dialog.js"
+    },
+    "./input-otp": {
+      "types": "./input-otp.d.ts",
+      "default": "./input-otp.js"
     }
   },
   "files": [
@@ -109,7 +113,9 @@
     "form.js",
     "form.d.ts",
     "dialog.js",
-    "dialog.d.ts"
+    "dialog.d.ts",
+    "input-otp.js",
+    "input-otp.d.ts"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

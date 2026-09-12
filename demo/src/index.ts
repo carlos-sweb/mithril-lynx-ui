@@ -9,6 +9,7 @@ import { Draggable } from "mithril-lynx-ui/draggable";
 import { DialogBackdrop, DialogClose, DialogContent, DialogRoot, DialogTrigger, DialogView } from "mithril-lynx-ui/dialog";
 import { FormField, FormRoot, FormSubmitButton } from "mithril-lynx-ui/form";
 import { Input, TextArea } from "mithril-lynx-ui/input";
+import { InputOTP, InputOTPSlot } from "mithril-lynx-ui/input-otp";
 import { LazyComponent } from "mithril-lynx-ui/lazy-component";
 import { Presence, PresenceContent } from "mithril-lynx-ui/presence";
 import { SliderIndicator, SliderRoot, SliderThumb, SliderTrack } from "mithril-lynx-ui/slider";
@@ -58,6 +59,8 @@ const state = {
   ],
   sortLog: [] as string[],
   dialogLog: [] as string[],
+  otpValue: "",
+  otpLog: [] as string[],
 };
 
 // Filled in on mount by <Input>; the Mithril stand-in for useImperativeHandle.
@@ -560,6 +563,22 @@ const Root: m.Component = {
           ],
         ),
         m("text", { class: "Row-note" }, state.dialogLog.length === 0 ? "sin eventos aún" : state.dialogLog.join(" · ")),
+      ),
+
+      ...section(
+        "INPUT OTP",
+        m(
+          InputOTP,
+          {
+            className: "ui-input-otp",
+            length: 4,
+            onChange: (v: string) => { state.otpValue = v; state.otpLog.push(`onChange: ${v}`); shim.redraw(); },
+            onComplete: (v: string) => { state.otpLog.push(`onComplete: ${v}`); shim.redraw(); },
+          },
+          [0, 1, 2, 3].map((i) => m(InputOTPSlot, { key: i, index: i, className: "ui-input-otp-slot" })),
+        ),
+        m("text", { class: "Row-note" }, `valor: ${state.otpValue || "(vacío)"}`),
+        m("text", { class: "Row-note" }, state.otpLog.length === 0 ? "sin eventos aún" : state.otpLog[state.otpLog.length - 1]),
       ),
 
       ...sectionTheme(),
