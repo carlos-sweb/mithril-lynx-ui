@@ -51,4 +51,13 @@ dependencies {
     implementation("org.lynxsdk.lynx:lynx-service-log:4.1.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.core:core-splashscreen:1.0.1")
+    // <refresh>'s native implementation (LynxUIRefresh, inside xelement above)
+    // is built on the third-party SmartRefreshLayout library, whose own
+    // touch-dispatch code (SmartUtil.isContentView) references
+    // androidx.viewpager2.widget.ViewPager2 directly — even though nothing in
+    // this app uses ViewPager2. Without this dependency, every touch on a
+    // <refresh> element threw NoClassDefFoundError on device (caught by the
+    // Lynx engine, so no crash, but the pull-to-refresh gesture never worked
+    // at all) — needed from the gallery's FeedList section onward.
+    implementation("androidx.viewpager2:viewpager2:1.1.0")
 }

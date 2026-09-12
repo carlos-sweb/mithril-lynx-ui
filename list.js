@@ -95,7 +95,16 @@ export const List = {
 		s.renderItem = renderItem;
 		s.itemKey = itemKey;
 		s.list.setItemCount(items.length);
-		if (style != null) wrapElement(s.list).setStyleProperties(style);
+		// Skips a genuinely EMPTY style object: onupdate's hook can run twice
+		// for a single redraw() call (a real, reproducible mithril-lynx
+		// vnode-diffing quirk, unrelated to this file — confirmed by calling
+		// shim.redraw() twice in a row on an otherwise-unchanged List and
+		// seeing two separate pushes, the second an empty {}). Harmless
+		// either way — __SetInlineStyles merges (`Object.assign(e.style, ...)`
+		// on device and in the test env alike), so a stray {} can't clear
+		// anything previously set — but skipping it avoids a wasted PAPI call
+		// on every redraw.
+		if (style != null && Object.keys(style).length > 0) wrapElement(s.list).setStyleProperties(style);
 	},
 
 	// A plain placeholder view Mithril creates and diffs normally; the real

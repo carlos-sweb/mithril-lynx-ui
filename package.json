@@ -81,6 +81,10 @@
     "./list": {
       "types": "./list.d.ts",
       "default": "./list.js"
+    },
+    "./feed-list": {
+      "types": "./feed-list.d.ts",
+      "default": "./feed-list.js"
     }
   },
   "files": [
@@ -121,7 +125,9 @@
     "input-otp.js",
     "input-otp.d.ts",
     "list.js",
-    "list.d.ts"
+    "list.d.ts",
+    "feed-list.js",
+    "feed-list.d.ts"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

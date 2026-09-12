@@ -13,6 +13,8 @@ import { InputOTP, InputOTPSlot } from "mithril-lynx-ui/input-otp";
 import { LazyComponent } from "mithril-lynx-ui/lazy-component";
 import { List } from "mithril-lynx-ui/list";
 import type { ListRef } from "mithril-lynx-ui/list";
+import { FeedList } from "mithril-lynx-ui/feed-list";
+import type { FeedListRef } from "mithril-lynx-ui/feed-list";
 import { Presence, PresenceContent } from "mithril-lynx-ui/presence";
 import { SliderIndicator, SliderRoot, SliderThumb, SliderTrack } from "mithril-lynx-ui/slider";
 import { SortableItem, SortableRoot } from "mithril-lynx-ui/sortable";
@@ -65,12 +67,18 @@ const state = {
   otpLog: [] as string[],
   listItems: Array.from({ length: 40 }, (_, i) => ({ id: String(i), label: `Elemento ${i + 1}` })),
   listLog: [] as string[],
+  feedItems: Array.from({ length: 10 }, (_, i) => ({ id: String(i), label: `Publicación ${i + 1}` })),
+  feedRefreshing: false,
+  feedLoadCount: 0,
+  feedLog: [] as string[],
 };
 
 // Filled in on mount by <Input>; the Mithril stand-in for useImperativeHandle.
 const nombreRef: Record<string, () => Promise<unknown>> = {};
 // Filled in on mount by <List>.
 const listRef: Partial<ListRef> = {};
+// Filled in on mount by <FeedList>.
+const feedListRef: Partial<FeedListRef> = {};
 
 const TOKENS = [
   { name: "--canvas", modifier: "canvas" },
@@ -615,6 +623,84 @@ const Root: m.Component = {
           }),
         ),
         m("text", { class: "Row-note" }, `${state.listItems.length} elementos — desliza dentro del recuadro para probar el reciclado nativo`),
+      ),
+
+      ...section(
+        "FEED LIST",
+        m("text", { class: "Row-note" }, "arrastra hacia abajo para refrescar (nativo); desplázate hasta el final para cargar más"),
+        m(FeedList, {
+          className: "ListBox",
+          style: { width: "100%", height: "260px" },
+          items: state.feedItems,
+          mainAxisGap: 1,
+          listId: "demoFeed",
+          listRef: feedListRef,
+          refreshOptions: {
+            enableRefresh: true,
+            headerContent: m(
+              "view",
+              { class: "FeedRefreshHeader" },
+              m("text", { class: "FeedRefreshHeader-text" }, state.feedRefreshing ? "Actualizando…" : "Suelta para actualizar"),
+            ),
+            onStartRefresh: () => {
+              state.feedRefreshing = true;
+              state.feedLog.push("onStartRefresh");
+              shim.redraw();
+              // Simulated network reload — real usage would fetch here and
+              // call finishRefresh() from that promise's own resolution.
+              //
+              // Appended, deliberately NOT prepended: core mithril-lynx's
+              // createList() (list.js) only diffs a count INCREASE as new
+              // items at the END (setItemCount has no notion of where items
+              // logically moved) — confirmed on device, prepending here
+              // left the already-bound first cell showing its OLD content
+              // instead of the new item. A real app hitting this needs
+              // either append-only feeds or a core list.js enhancement for
+              // arbitrary insert positions; out of scope for this component.
+              setTimeout(() => {
+                state.feedItems = [...state.feedItems, { id: `new-${Date.now()}`, label: "Publicación nueva" }];
+                state.feedRefreshing = false;
+                state.feedLog.push("finishRefresh");
+                shim.redraw();
+                void feedListRef.finishRefresh?.();
+              }, 800);
+            },
+          },
+          onLoadMore: () => {
+            state.feedLog.push("onLoadMore");
+            shim.redraw();
+            setTimeout(() => {
+              state.feedLoadCount += 1;
+              const base = state.feedItems.length;
+              state.feedItems = [
+                ...state.feedItems,
+                ...Array.from({ length: 5 }, (_, i) => ({ id: String(base + i), label: `Publicación ${base + i + 1}` })),
+              ];
+              // Demo cap so "no hay más" is actually reachable in the gallery.
+              if (state.feedLoadCount >= 2) void feedListRef.changeHasMoreStatus?.(false);
+              shim.redraw();
+            }, 600);
+          },
+          loadMoreFooter: () => m("view", { class: "ui-feed-list-footer" }, m("text", { class: "ui-feed-list-footer-text" }, "Cargando más…")),
+          noMoreDataFooter: () => m("view", { class: "ui-feed-list-footer" }, m("text", { class: "ui-feed-list-footer-text" }, "No hay más publicaciones")),
+          renderItem: (item: { id: string; label: string }) =>
+            m("view", { class: "ListRow" }, m("text", { class: "ListRow-label" }, item.label)),
+          itemKey: (item: { id: string; label: string }) => item.id,
+        }),
+        row(
+          DemoButton("Actualizar manualmente", "ui-button--secondary", {
+            // A real finger's drag-then-release on the header is the normal
+            // trigger, but a nested scroll-view inside this gallery page
+            // competes with <refresh>'s own touch handling for the SAME
+            // gesture (confirmed on device: an ADB-simulated pull from the
+            // box's very top edge scrolled the OUTER page instead of
+            // reaching <refresh>'s pull detection) — this button exercises
+            // the exact same imperative path (native autoStartRefresh)
+            // without depending on winning that gesture-priority race.
+            onClick: () => { void feedListRef.startRefresh?.(); },
+          }),
+        ),
+        m("text", { class: "Row-note" }, state.feedLog.length === 0 ? "sin eventos aún" : state.feedLog.slice(-3).join(" · ")),
       ),
 
       ...sectionTheme(),

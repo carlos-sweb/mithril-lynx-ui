@@ -330,3 +330,16 @@
   font-size: 14px;
   color: var(--content, #ff00ff);
 }
+
+.FeedRefreshHeader {
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.FeedRefreshHeader-text {
+  font-size: 13px;
+  color: var(--content-subtle, #ff00ff);
+}

@@ -1,0 +1,18 @@
+/* Optional default look for ./feed-list.js's load-more footer — opt in with
+   "ui-feed-list-footer". lynx-ui itself ships no CSS for this footer (it's a
+   mithril-lynx-ui-only addition, not a port of upstream markup), so this
+   exists purely so a consuming app gets a presentable default without
+   writing its own. Luna tokens only. */
+
+.ui-feed-list-footer {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 0;
+}
+
+.ui-feed-list-footer-text {
+  font-size: 13px;
+  color: var(--content-subtle, #999);
+}
