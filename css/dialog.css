@@ -1,0 +1,78 @@
+/* Optional default look for ./dialog.js — opt in with "ui-dialog-backdrop" /
+   "ui-dialog-content". lynx-ui itself ships no CSS; this exists so a
+   mithril-lynx app gets a presentable modal without a utility framework.
+   Luna tokens only, so it inherits whatever theme class is on an ancestor.
+
+   The entering/leaving/animating classes only appear when the caller passes
+   `transition: true` to DialogBackdrop/DialogContent (dialog.js's own
+   dialogClasses omits them otherwise, matching lynx-ui's own
+   presenceClassVariants) — set it to get these animations at all. */
+
+.ui-dialog-backdrop {
+  background-color: var(--neutral-film, rgba(0, 0, 0, 0.5));
+  opacity: 0;
+}
+
+.ui-dialog-backdrop.ui-open {
+  opacity: 1;
+}
+
+.ui-dialog-backdrop.ui-entering {
+  animation: ui-dialog-backdrop-in 0.18s ease-out forwards;
+}
+
+.ui-dialog-backdrop.ui-leaving {
+  animation: ui-dialog-backdrop-out 0.15s ease-in forwards;
+}
+
+@keyframes ui-dialog-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ui-dialog-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Centered by DialogView's own wrapper (display:flex, justify-content/
+   align-items:center) — see dialog.js. Lynx's default layout is linear, not
+   web flow, so the web habit of `position:absolute; left:50%; top:50%;
+   transform:translate(-50%,-50%)` does NOT center this the way it would in
+   a browser; confirmed on device (the content rendered as a single-character-
+   per-line vertical sliver pinned to the screen's left edge instead).
+   `min-width`/`max-width` still apply normally to a flex child. */
+.ui-dialog-content {
+  min-width: 260px;
+  max-width: 88%;
+  padding: 20px;
+  border-radius: 16px;
+  background-color: var(--paper);
+  opacity: 0;
+}
+
+.ui-dialog-content.ui-open {
+  opacity: 1;
+}
+
+.ui-dialog-content.ui-entering {
+  animation: ui-dialog-content-in 0.2s ease-out forwards;
+}
+
+.ui-dialog-content.ui-leaving {
+  animation: ui-dialog-content-out 0.16s ease-in forwards;
+}
+
+@keyframes ui-dialog-content-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes ui-dialog-content-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.92); }
+}
+
+.ui-busy {
+  opacity: 0.6;
+}

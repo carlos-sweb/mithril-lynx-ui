@@ -6,6 +6,7 @@ import { Button } from "mithril-lynx-ui/button";
 import { Checkbox, CheckboxIndicator } from "mithril-lynx-ui/checkbox";
 import { Radio, RadioGroup, RadioIndicator } from "mithril-lynx-ui/radio-group";
 import { Draggable } from "mithril-lynx-ui/draggable";
+import { DialogBackdrop, DialogClose, DialogContent, DialogRoot, DialogTrigger, DialogView } from "mithril-lynx-ui/dialog";
 import { FormField, FormRoot, FormSubmitButton } from "mithril-lynx-ui/form";
 import { Input, TextArea } from "mithril-lynx-ui/input";
 import { LazyComponent } from "mithril-lynx-ui/lazy-component";
@@ -56,6 +57,7 @@ const state = {
     { id: "4", label: "Planificar sprint" },
   ],
   sortLog: [] as string[],
+  dialogLog: [] as string[],
 };
 
 // Filled in on mount by <Input>; the Mithril stand-in for useImperativeHandle.
@@ -528,6 +530,36 @@ const Root: m.Component = {
         // still real.
         m("text", { class: "Row-note" }, state.formLog.length === 0 ? "sin cambios aún" : state.formLog[state.formLog.length - 1]),
         m("text", { class: "Row-note" }, state.formSubmitted == null ? "sin enviar aún" : `enviado: ${JSON.stringify(state.formSubmitted)}`),
+      ),
+
+      ...section(
+        "DIALOG",
+        m(
+          DialogRoot,
+          {
+            onOpen: () => { state.dialogLog.push("onOpen"); shim.redraw(); },
+            onClose: () => { state.dialogLog.push("onClose"); shim.redraw(); },
+          },
+          [
+            m(DialogTrigger, { className: "ui-button" }, m("text", { class: "ui-button-label" }, "Abrir diálogo")),
+            m(DialogView, {}, [
+              m(DialogBackdrop, { className: "ui-dialog-backdrop", transition: true }),
+              m(DialogContent, { className: "ui-dialog-content", transition: true }, [
+                m("text", { class: "PresenceCard-title" }, "¿Confirmas la acción?"),
+                m(
+                  "text",
+                  { class: "PresenceCard-text" },
+                  "El backdrop y el contenido animan como un solo grupo — ambos deben terminar antes de que onClose se dispare.",
+                ),
+                row(
+                  m(DialogClose, { className: "ui-button ui-button--secondary" }, m("text", { class: "ui-button-label" }, "Cancelar")),
+                  m(DialogClose, { className: "ui-button" }, m("text", { class: "ui-button-label" }, "Confirmar")),
+                ),
+              ]),
+            ]),
+          ],
+        ),
+        m("text", { class: "Row-note" }, state.dialogLog.length === 0 ? "sin eventos aún" : state.dialogLog.join(" · ")),
       ),
 
       ...sectionTheme(),

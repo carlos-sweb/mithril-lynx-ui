@@ -69,6 +69,10 @@
     "./form": {
       "types": "./form.d.ts",
       "default": "./form.js"
+    },
+    "./dialog": {
+      "types": "./dialog.d.ts",
+      "default": "./dialog.js"
     }
   },
   "files": [
@@ -103,7 +107,9 @@
     "lazy-component.js",
     "lazy-component.d.ts",
     "form.js",
-    "form.d.ts"
+    "form.d.ts",
+    "dialog.js",
+    "dialog.d.ts"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
