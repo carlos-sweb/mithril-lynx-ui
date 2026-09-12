@@ -10,37 +10,32 @@
 // it to Draggable and to a Scope (this project's Context substitute) that
 // carries shared list state down to each SortableItem.
 //
-// *** KNOWN, CONFIRMED, UNRESOLVED DEVICE BUG — do not ship without reading
-// this *** (found 2026-09-11, many hours of device bisection): on the real
-// device, calling shim.redraw() from a Draggable's onDragStart or onDragEnd
-// callback — i.e. from a handler invoked out of touchstart/touchend —
-// crashes with "TypeError: not a function" inside a LATER, seemingly
-// unrelated component's view() call. Confirmed NOT reproducible in the
-// jsdom/rstest environment (sortable.test.ts passes cleanly). Isolated,
-// with a two-Draggable throwaway test harness outside Sortable entirely,
-// to: redrawing from onDragging (touchMOVE) is fine — this project's own
-// existing Draggable demo does exactly that already, verified working,
-// many times. Redrawing from onDragStart/onDragEnd (touchSTART/touchEND)
-// is what crashes. Deferring the SAME redraw call via setTimeout(fn, 0) or
-// lynx.requestAnimationFrame(fn) from inside onDragStart does NOT avoid
-// it — still crashes once the deferred callback runs. A LATER redraw
-// triggered by a completely separate, subsequent interaction (e.g. tapping
-// an unrelated Button) does NOT crash, even though it renders the exact
-// same state onDragStart had already mutated. So this isn't about the data
-// being rendered, or about redraw() being "reentrant" in the general
-// sense — it's specifically tied to the touchstart/touchend call stack
-// itself. Ruled out along the way, each with its own on-device test, so
-// don't re-suspect them: the Scope Provider/fragment/PopMarker wrapping,
-// SortableItem being a separate Mithril component (tested as a plain
-// function instead — still crashed), draggableRef, draggableProps/
-// onlayoutchange, the "ui-sorting" class computation, and list size (a
-// single item reproduces it too). This reads like a real mithril-lynx CORE
-// bug around touchstart/touchend event-dispatch bracketing and a
-// subsequent redraw — in the same spirit as the already-documented
-// null-view removal bug, but a different manifestation — and is NOT yet
-// fixed here. onItemDragStart's and onItemDragEnd's shim.redraw() calls
-// below are exactly where it happens. See the project memory file for the
-// full bisection log before spending more time on this.
+// *** RESOLVED (2026-09-12) — was flagged here as an unresolved core bug;
+// re-tested on device and no longer reproduces *** . The original report
+// (2026-09-11): calling shim.redraw() from a Draggable's onDragStart or
+// onDragEnd callback crashed with "TypeError: not a function" inside a
+// LATER, seemingly unrelated component's view() call, and simply mounting
+// any real SortableItem also broke the separately-shipped SwipeAction
+// component on the same page. That signature — a generic "not a function"
+// inside some other component's view(), only once the interaction actually
+// produced a NEW value somewhere — turned out, in the unrelated Form
+// component's crash the same week, to be `Array.prototype.at()` not being
+// implemented by Lynx's main-thread JS engine (see AGENTS.md). The demo's
+// own SORTABLE section had the exact same `state.sortLog.at(-1)` pattern,
+// only reachable once a drag actually completed — matching this bug's own
+// "`data: []` (never drags) is fine; any real item (which does) breaks"
+// symptom exactly. Fixed there (`[len-1]` instead of `.at(-1)`) and
+// re-verified end to end on the real device: dragged an item to reorder
+// (onDragStart/onDragEnd redraws, from touchstart/touchend, no crash),
+// then swiped and deleted a SwipeAction row on the SAME page right
+// afterward (no regression) — both previously-crashing paths, now clean.
+// Left the demo section enabled. Note: an earlier isolated two-Draggable
+// test harness (since deleted) reportedly reproduced the same signature
+// OUTSIDE Sortable entirely, without going through this `.at()` call — if
+// that observation was accurate, there may still be a narrower core issue
+// nobody has since reproduced; nothing else has been able to reproduce a
+// crash here since the `.at()` fix, so treat this as resolved unless a new
+// device repro shows up.
 //
 // Real device-only surprise, found while WRITING this (not guessed from the
 // original): moving a sibling item's transform from OUTSIDE that item's own

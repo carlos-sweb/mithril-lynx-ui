@@ -65,6 +65,10 @@
     "./lazy-component": {
       "types": "./lazy-component.d.ts",
       "default": "./lazy-component.js"
+    },
+    "./form": {
+      "types": "./form.d.ts",
+      "default": "./form.js"
     }
   },
   "files": [
@@ -97,7 +101,9 @@
     "sortable.d.ts",
     "internal/sortable-utils.js",
     "lazy-component.js",
-    "lazy-component.d.ts"
+    "lazy-component.d.ts",
+    "form.js",
+    "form.d.ts"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
@@ -107,14 +113,14 @@
   },
   "peerDependencies": {
     "mithril": "2.3.8",
-    "mithril-lynx": "^0.0.4"
+    "mithril-lynx": "^0.0.5"
   },
   "dependencies": {
     "@lynx-js/luna-styles": "^0.2.2"
   },
   "devDependencies": {
     "mithril": "2.3.8",
-    "mithril-lynx": "^0.0.4",
+    "mithril-lynx": "^0.0.5",
     "@lynx-js/testing-environment": "npm:@lynx-js/testing-environment-canary@0.3.2-canary-20260803-5a891c73",
     "@lynx-js/type-element-api": "0.0.9",
     "@lynx-js/types": "4.1.0",

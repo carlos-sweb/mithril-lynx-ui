@@ -6,6 +6,7 @@ import { Button } from "mithril-lynx-ui/button";
 import { Checkbox, CheckboxIndicator } from "mithril-lynx-ui/checkbox";
 import { Radio, RadioGroup, RadioIndicator } from "mithril-lynx-ui/radio-group";
 import { Draggable } from "mithril-lynx-ui/draggable";
+import { FormField, FormRoot, FormSubmitButton } from "mithril-lynx-ui/form";
 import { Input, TextArea } from "mithril-lynx-ui/input";
 import { LazyComponent } from "mithril-lynx-ui/lazy-component";
 import { Presence, PresenceContent } from "mithril-lynx-ui/presence";
@@ -39,6 +40,8 @@ const state = {
   card: false,
   presenceLog: [] as string[],
   lazyLog: [] as string[],
+  formLog: [] as string[],
+  formSubmitted: null as Record<string, unknown> | null,
   nombre: "",
   notas: "",
   drag: { x: 0, y: 0 },
@@ -337,19 +340,17 @@ const Root: m.Component = {
         ),
       ),
 
-      // SORTABLE is disabled here, not deleted: mounting any real
-      // SortableItem/Draggable instance on this page — even a single one,
-      // even completely untouched — corrupts something that then makes
-      // SwipeAction's OWN redraw crash on its next swipe, the exact same
-      // "TypeError: not a function inside a later view()" signature already
-      // confirmed for Sortable's own gestures. Confirmed by bisection: with
-      // `data: []` (SortableRoot mounted, zero items) SwipeAction is fine;
-      // with any items mounted, SwipeAction breaks. So this isn't just "not
-      // device-verified" — right now it actively regresses an
-      // already-shipped, working component just by sharing the page with
-      // it. Re-enable only once the core bug documented in sortable.js's
-      // header is actually fixed.
-      ...(false ? section(
+      // SORTABLE was disabled here for a while (not deleted) after mounting
+      // any real SortableItem/Draggable instance appeared to corrupt
+      // something that then made SwipeAction's own redraw crash on its next
+      // swipe. Root-caused (2026-09-12) as the same `Array.prototype.at()`
+      // gap that broke FORM below: this section's own `sortLog.at(-1)`
+      // — only reachable once a drag actually completes — was the real
+      // crash, not a core mithril-lynx bug (see sortable.js's header and
+      // AGENTS.md). Fixed and re-verified end to end on device (drag to
+      // reorder, then swipe-delete a SwipeAction row on the same page,
+      // both clean) — re-enabled for real.
+      ...section(
         "SORTABLE",
         m("text", { class: "Row-note" }, "mantén presionado y arrastra para reordenar"),
         m(
@@ -377,9 +378,9 @@ const Root: m.Component = {
         m(
           "text",
           { class: "Row-note" },
-          state.sortLog.length === 0 ? "sin eventos aún" : state.sortLog.at(-1),
+          state.sortLog.length === 0 ? "sin eventos aún" : state.sortLog[state.sortLog.length - 1],
         ),
-      ) : []),
+      ),
 
       ...section(
         "INPUT · TEXTAREA",
@@ -480,6 +481,53 @@ const Root: m.Component = {
           { class: "Row-note" },
           state.lazyLog.length === 0 ? "sin eventos aún" : state.lazyLog.slice(-3).join(" · "),
         ),
+      ),
+
+      ...section(
+        "FORM",
+        m(
+          FormRoot,
+          {
+            initialValues: { plan: "mensual" },
+            onChanged: (v: Record<string, unknown>) => { state.formLog.push(JSON.stringify(v)); shim.redraw(); },
+            onSubmit: (v: Record<string, unknown>) => { state.formSubmitted = v; shim.redraw(); },
+          },
+          [
+            m(FormField, { as: "Input", name: "nombre", className: "ui-input", placeholder: "Tu nombre" }),
+            row(
+              m(FormField, { as: "Checkbox", name: "terminos", className: "ui-checkbox" }, m(CheckboxIndicator, { className: "ui-checkbox-indicator" }, m("text", { class: "ui-checkbox-indicator-mark" }, "✓"))),
+              label("Acepto los términos"),
+            ),
+            row(
+              m(FormField, { as: "Switch", name: "boletin", className: "ui-switch" }, [m(SwitchTrack, { className: "ui-switch-track" }, m(SwitchThumb, { className: "ui-switch-thumb" }))]),
+              label("Recibir boletín"),
+            ),
+            m(FormField, { as: "RadioGroupRoot", name: "plan" }, [
+              row(m(Radio, { className: "ui-radio", value: "mensual" }, m(RadioIndicator, { className: "ui-radio-indicator" })), label("Mensual")),
+              row(m(Radio, { className: "ui-radio", value: "anual" }, m(RadioIndicator, { className: "ui-radio-indicator" })), label("Anual")),
+            ]),
+            row(m(FormSubmitButton, { className: "ui-button" }, m("text", { class: "ui-button-label" }, "Enviar"))),
+          ],
+        ),
+        // `.at(-1)` (ES2022), not `[len-1]`, was the ORIGINAL page-wide crash
+        // here: the Lynx main-thread QuickJS engine doesn't implement
+        // Array.prototype.at, so the very first call — only reachable once
+        // formLog actually has an entry, i.e. only after a real field change
+        // — threw "TypeError: not a function" INSIDE this Root.view() call,
+        // which broke that entire redraw (and looked, from a tap on ANY
+        // other component afterward, like the whole page had broken).
+        // Confirmed via mithril-lynx core's own callHook (temporarily
+        // instrumented to dump the throwing hook's identity): the crashing
+        // vnode had tagKeys=["view"], thisLength=0 and attrs=undefined —
+        // uniquely matching this Root component itself (recreated via a bare
+        // `Vnode(rootComponent)` on every redraw, which is why attrs is
+        // undefined here specifically). SORTABLE's own now-disabled section
+        // below had the exact same `.at(-1)` pattern on `sortLog` — likely
+        // the same root cause, not necessarily the separate core bug its
+        // header describes; worth re-checking before assuming that one is
+        // still real.
+        m("text", { class: "Row-note" }, state.formLog.length === 0 ? "sin cambios aún" : state.formLog[state.formLog.length - 1]),
+        m("text", { class: "Row-note" }, state.formSubmitted == null ? "sin enviar aún" : `enviado: ${JSON.stringify(state.formSubmitted)}`),
       ),
 
       ...sectionTheme(),
