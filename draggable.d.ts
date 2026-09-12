@@ -11,9 +11,17 @@ export interface Point {
 export type BasicDirection = "left" | "right" | "up" | "down";
 export type AllowedDirection = "all" | "none" | BasicDirection | BasicDirection[];
 
+/** Imperative handle, filled in on mount. */
+export interface DraggableRef {
+  setTransform(x: number, y: number): void;
+  getTranslate(): Point;
+}
+
 export interface DraggableAttrs {
   className?: string;
   style?: Record<string, string | number>;
+  /** A plain object to receive the imperative API on mount. */
+  draggableRef?: Partial<DraggableRef>;
   /** Defaults to true. When false no handlers are attached at all. */
   enableDragging?: boolean;
   /** What begins a drag. Defaults to "longpress", matching lynx-ui. */

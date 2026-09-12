@@ -2,6 +2,14 @@
 //
 // Mithril port of @lynx-js/lynx-ui-draggable (Apache-2.0 — see ./NOTICE).
 //
+// `draggableRef` (added for sortable.js, Phase 5): a plain object filled in
+// oncreate with `setTransform(x, y)`/`getTranslate()` — the same imperative-
+// ref convention as inputRef/sliderRef/actionRef elsewhere in this repo.
+// sortable.js needs to move a sibling item's transform from OUTSIDE that
+// item's own drag gesture (the "swap target" while another item is being
+// dragged over it), which nothing on Draggable's own view() exposes
+// otherwise.
+//
 // This is where the project's central bet pays off most clearly. lynx-ui's
 // version carries twelve `'main thread'` directives: the entire drag loop —
 // reading the touch point, computing the delta, clamping it, writing the
@@ -68,6 +76,11 @@ function clamp(value, min, max) {
 	return Math.min(Math.max(value, min), max);
 }
 
+function writeTransform(s, x, y) {
+	s.translate = { x, y };
+	if (s.el != null) s.el.setStyleProperty("transform", `translate(${x}px, ${y}px)`);
+}
+
 export const Draggable = {
 	oninit(vnode) {
 		const s = vnode.state;
@@ -78,17 +91,21 @@ export const Draggable = {
 	},
 
 	oncreate(vnode) {
-		vnode.state.el = wrapElement(vnode.dom);
+		const s = vnode.state;
+		s.el = wrapElement(vnode.dom);
+
+		const draggableRef = vnode.attrs.draggableRef;
+		if (draggableRef != null) {
+			draggableRef.setTransform = (x, y) => writeTransform(s, x, y);
+			draggableRef.getTranslate = () => s.translate;
+		}
 	},
 
 	view(vnode) {
 		const s = vnode.state;
 		const { className, style, enableDragging = true, resetOnEnd = false, trigger = "longpress" } = vnode.attrs;
 
-		const setTransform = (x, y) => {
-			s.translate = { x, y };
-			if (s.el != null) s.el.setStyleProperty("transform", `translate(${x}px, ${y}px)`);
-		};
+		const setTransform = (x, y) => writeTransform(s, x, y);
 
 		const onStart = (e) => {
 			const point = pagePoint(e);

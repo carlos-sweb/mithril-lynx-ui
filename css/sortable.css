@@ -1,0 +1,22 @@
+/* Optional default look for ./sortable.js — opt in with "ui-sortable" on
+   each SortableItem's className. See css/button.css's header for why these
+   defaults exist at all.
+
+   No transition on transform: sortable.js drives it every touchmove and
+   every swap, same reasoning as css/draggable.css.
+
+   .ui-sorting marks whichever item is currently being dragged — this
+   project's v1 stand-in for the original's separate drag-overlay layer (see
+   sortable.js's header): a z-index/visual bump in place, not a detached
+   overlay. */
+
+.ui-sortable {
+  transition: box-shadow 0.15s ease-out, opacity 0.15s ease-out;
+}
+
+.ui-sortable.ui-sorting {
+  position: relative;
+  z-index: 10;
+  opacity: 0.96;
+  box-shadow: 0 6px 18px var(--backdrop-subtle);
+}

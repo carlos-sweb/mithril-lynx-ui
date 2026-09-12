@@ -9,6 +9,7 @@ import { Draggable } from "mithril-lynx-ui/draggable";
 import { Input, TextArea } from "mithril-lynx-ui/input";
 import { Presence, PresenceContent } from "mithril-lynx-ui/presence";
 import { SliderIndicator, SliderRoot, SliderThumb, SliderTrack } from "mithril-lynx-ui/slider";
+import { SortableItem, SortableRoot } from "mithril-lynx-ui/sortable";
 import { SwipeAction } from "mithril-lynx-ui/swipe-action";
 import { Switch, SwitchThumb, SwitchTrack } from "mithril-lynx-ui/switch";
 
@@ -43,6 +44,13 @@ const state = {
   range: [0.2, 0.7] as [number, number],
   swipeItems: ["Correo de bienvenida", "Recordatorio de pago", "Nueva actualización"],
   swipeLog: [] as string[],
+  sortableItems: [
+    { id: "1", label: "Preparar reporte" },
+    { id: "2", label: "Revisar PRs" },
+    { id: "3", label: "Responder correos" },
+    { id: "4", label: "Planificar sprint" },
+  ],
+  sortLog: [] as string[],
 };
 
 // Filled in on mount by <Input>; the Mithril stand-in for useImperativeHandle.
@@ -324,6 +332,38 @@ const Root: m.Component = {
           "text",
           { class: "Row-note" },
           state.swipeLog.length === 0 ? "sin eventos aún" : state.swipeLog.slice(-3).join(" · "),
+        ),
+      ),
+
+      ...section(
+        "SORTABLE",
+        m("text", { class: "Row-note" }, "mantén presionado y arrastra para reordenar"),
+        m(
+          "view",
+          { class: "SortableList" },
+          m(SortableRoot, {
+            data: state.sortableItems.map((item) => ({ getSortingKey: () => item.id, dataItem: item })),
+            onSortStart: () => { state.sortLog.push("inicio de arrastre"); shim.redraw(); },
+            // SortableRoot's declared type is Component<SortableRootAttrs<unknown>>
+            // (Mithril's Component type doesn't preserve a call-site generic), so
+            // the callback's own item shape is asserted here rather than inferred.
+            onSortEnd: (sorted: unknown[]) => {
+              state.sortableItems = (sorted as { dataItem: { id: string; label: string } }[]).map((d) => d.dataItem);
+              state.sortLog.push(`orden: ${state.sortableItems.map((i) => i.label).join(" › ")}`);
+              shim.redraw();
+            },
+            children: (item: { getSortingKey: () => string; dataItem: unknown }) =>
+              m(
+                SortableItem,
+                { className: "ui-sortable SortableRow", sortingKey: item.getSortingKey() },
+                m("text", { class: "SortableRow-label" }, (item.dataItem as { label: string }).label),
+              ),
+          }),
+        ),
+        m(
+          "text",
+          { class: "Row-note" },
+          state.sortLog.length === 0 ? "sin eventos aún" : state.sortLog.at(-1),
         ),
       ),
 

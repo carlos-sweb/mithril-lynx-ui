@@ -57,6 +57,10 @@
     "./swipe-action": {
       "types": "./swipe-action.d.ts",
       "default": "./swipe-action.js"
+    },
+    "./sortable": {
+      "types": "./sortable.d.ts",
+      "default": "./sortable.js"
     }
   },
   "files": [
@@ -84,7 +88,10 @@
     "slider.d.ts",
     "internal/slider-utils.js",
     "swipe-action.js",
-    "swipe-action.d.ts"
+    "swipe-action.d.ts",
+    "sortable.js",
+    "sortable.d.ts",
+    "internal/sortable-utils.js"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

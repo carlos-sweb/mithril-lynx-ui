@@ -269,3 +269,24 @@
   font-size: 13px;
   font-weight: 600;
 }
+
+.SortableList {
+  display: flex;
+  flex-direction: column;
+}
+
+.SortableRow {
+  height: 52px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0 16px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  background-color: var(--paper, #ff00ff);
+}
+
+.SortableRow-label {
+  font-size: 14px;
+  color: var(--content, #ff00ff);
+}
