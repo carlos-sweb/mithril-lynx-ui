@@ -7,6 +7,7 @@ import { Checkbox, CheckboxIndicator } from "mithril-lynx-ui/checkbox";
 import { Radio, RadioGroup, RadioIndicator } from "mithril-lynx-ui/radio-group";
 import { Draggable } from "mithril-lynx-ui/draggable";
 import { Input, TextArea } from "mithril-lynx-ui/input";
+import { LazyComponent } from "mithril-lynx-ui/lazy-component";
 import { Presence, PresenceContent } from "mithril-lynx-ui/presence";
 import { SliderIndicator, SliderRoot, SliderThumb, SliderTrack } from "mithril-lynx-ui/slider";
 import { SortableItem, SortableRoot } from "mithril-lynx-ui/sortable";
@@ -37,6 +38,7 @@ const state = {
   taps: 0,
   card: false,
   presenceLog: [] as string[],
+  lazyLog: [] as string[],
   nombre: "",
   notas: "",
   drag: { x: 0, y: 0 },
@@ -442,6 +444,41 @@ const Root: m.Component = {
           "text",
           { class: "Row-note" },
           state.presenceLog.length === 0 ? "sin eventos aún" : state.presenceLog.join(" · "),
+        ),
+      ),
+
+      ...section(
+        "LAZY COMPONENT",
+        m("text", { class: "Row-note" }, "el contenido de abajo se carga al hacer scroll hasta aquí"),
+        m(
+          LazyComponent,
+          {
+            pid: "lazy-demo-1",
+            scene: "gallery",
+            className: "ui-lazy-component LazyBox",
+            estimatedStyle: { width: "100%", height: "72px" },
+            onAppear: () => { state.lazyLog.push("cargado (una vez)"); shim.redraw(); },
+          },
+          m("view", { class: "LazyBox-content" }, m("text", { class: "LazyBox-text" }, "Contenido cargado de forma perezosa")),
+        ),
+        m("text", { class: "Row-note" }, "con unmountOnExit: se descarga otra vez al salir de pantalla"),
+        m(
+          LazyComponent,
+          {
+            pid: "lazy-demo-2",
+            scene: "gallery",
+            className: "ui-lazy-component LazyBox",
+            estimatedStyle: { width: "100%", height: "72px" },
+            unmountOnExit: true,
+            onAppear: () => { state.lazyLog.push("apareció (unmountOnExit)"); shim.redraw(); },
+            onDisappear: () => { state.lazyLog.push("descargado (unmountOnExit)"); shim.redraw(); },
+          },
+          m("view", { class: "LazyBox-content" }, m("text", { class: "LazyBox-text" }, "Este se descarga al salir")),
+        ),
+        m(
+          "text",
+          { class: "Row-note" },
+          state.lazyLog.length === 0 ? "sin eventos aún" : state.lazyLog.slice(-3).join(" · "),
         ),
       ),
 

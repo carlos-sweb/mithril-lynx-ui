@@ -61,6 +61,10 @@
     "./sortable": {
       "types": "./sortable.d.ts",
       "default": "./sortable.js"
+    },
+    "./lazy-component": {
+      "types": "./lazy-component.d.ts",
+      "default": "./lazy-component.js"
     }
   },
   "files": [
@@ -91,7 +95,9 @@
     "swipe-action.d.ts",
     "sortable.js",
     "sortable.d.ts",
-    "internal/sortable-utils.js"
+    "internal/sortable-utils.js",
+    "lazy-component.js",
+    "lazy-component.d.ts"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

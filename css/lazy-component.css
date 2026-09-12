@@ -1,0 +1,10 @@
+/* Optional default look for ./lazy-component.js — opt in with "ui-lazy-component"
+   on the component's own className. See css/button.css's header for why
+   these defaults exist at all. Purely cosmetic: lazy-component.js's own
+   min-width/min-height floor (needed for exposure detection to ever fire
+   at all) is applied unconditionally in JS, not here. */
+
+.ui-lazy-component {
+  background-color: var(--neutral-film);
+  border-radius: 8px;
+}
