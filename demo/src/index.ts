@@ -335,7 +335,19 @@ const Root: m.Component = {
         ),
       ),
 
-      ...section(
+      // SORTABLE is disabled here, not deleted: mounting any real
+      // SortableItem/Draggable instance on this page — even a single one,
+      // even completely untouched — corrupts something that then makes
+      // SwipeAction's OWN redraw crash on its next swipe, the exact same
+      // "TypeError: not a function inside a later view()" signature already
+      // confirmed for Sortable's own gestures. Confirmed by bisection: with
+      // `data: []` (SortableRoot mounted, zero items) SwipeAction is fine;
+      // with any items mounted, SwipeAction breaks. So this isn't just "not
+      // device-verified" — right now it actively regresses an
+      // already-shipped, working component just by sharing the page with
+      // it. Re-enable only once the core bug documented in sortable.js's
+      // header is actually fixed.
+      ...(false ? section(
         "SORTABLE",
         m("text", { class: "Row-note" }, "mantén presionado y arrastra para reordenar"),
         m(
@@ -365,7 +377,7 @@ const Root: m.Component = {
           { class: "Row-note" },
           state.sortLog.length === 0 ? "sin eventos aún" : state.sortLog.at(-1),
         ),
-      ),
+      ) : []),
 
       ...section(
         "INPUT · TEXTAREA",
