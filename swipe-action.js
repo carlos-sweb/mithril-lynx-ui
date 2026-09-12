@@ -316,6 +316,18 @@ export const SwipeAction = {
 						display: "linear",
 						"linear-orientation": "horizontal",
 						width: totalAreaSize > 0 ? `${totalAreaSize}px` : undefined,
+						// Real visual bug, caught only by actually looking at a
+						// screenshot rather than trusting "it doesn't crash": with no
+						// height set here, this row was auto/content-sized — shorter
+						// than the outer viewport's real height (set by the CALLER's
+						// own CSS, e.g. .SwipeRow{height:56px}) — so displayArea/
+						// actionArea's own `height:"100%"` below resolved against
+						// THIS node's shrunk auto height, not the intended row height.
+						// Every row rendered as a short, mis-centered pill floating in
+						// a mostly-empty box, and the revealed action button was the
+						// same height, not the full row — looked broken even though
+						// nothing was throwing.
+						height: "100%",
 						transform: `translateX(${s.currentTransform}px)`,
 					},
 				},
