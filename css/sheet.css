@@ -1,0 +1,121 @@
+/* Optional default look for ./sheet.js — opt in with "ui-sheet-backdrop" /
+   "ui-sheet-content" / "ui-sheet-handle". lynx-ui itself ships no CSS; this
+   exists so a mithril-lynx app gets a presentable sheet without a utility
+   framework. Luna tokens only.
+
+   The entering/leaving/animating classes only appear when the caller passes
+   `transition: true` to SheetBackdrop/SheetContent (sheet.js's own
+   sheetClasses omits them otherwise, matching dialog.css's own convention)
+   — set it to get these animations at all. */
+
+.ui-sheet-backdrop {
+  background-color: var(--neutral-film, rgba(0, 0, 0, 0.5));
+  opacity: 0;
+}
+
+.ui-sheet-backdrop.ui-open {
+  opacity: 1;
+}
+
+.ui-sheet-backdrop.ui-entering {
+  animation: ui-sheet-backdrop-in 0.18s ease-out forwards;
+}
+
+.ui-sheet-backdrop.ui-leaving {
+  animation: ui-sheet-backdrop-out 0.15s ease-in forwards;
+}
+
+@keyframes ui-sheet-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ui-sheet-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.ui-sheet-content {
+  padding: 20px;
+  background-color: var(--paper);
+}
+
+.ui-sheet-side-bottom { border-radius: 16px 16px 0 0; }
+.ui-sheet-side-top { border-radius: 0 0 16px 16px; }
+.ui-sheet-side-left { border-radius: 0 16px 16px 0; }
+.ui-sheet-side-right { border-radius: 16px 0 0 16px; }
+
+/* Slides fully off-screen (100% of the CONTENT's own box, not the
+   viewport) to/from its resting position — one keyframe pair per edge,
+   picked by the always-present ui-sheet-side-* class (see sheet.js's own
+   sheetClasses). */
+.ui-sheet-content.ui-sheet-side-bottom.ui-entering {
+  animation: ui-sheet-in-bottom 0.22s ease-out forwards;
+}
+.ui-sheet-content.ui-sheet-side-bottom.ui-leaving {
+  animation: ui-sheet-out-bottom 0.18s ease-in forwards;
+}
+@keyframes ui-sheet-in-bottom {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes ui-sheet-out-bottom {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+.ui-sheet-content.ui-sheet-side-top.ui-entering {
+  animation: ui-sheet-in-top 0.22s ease-out forwards;
+}
+.ui-sheet-content.ui-sheet-side-top.ui-leaving {
+  animation: ui-sheet-out-top 0.18s ease-in forwards;
+}
+@keyframes ui-sheet-in-top {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+@keyframes ui-sheet-out-top {
+  from { transform: translateY(0); }
+  to { transform: translateY(-100%); }
+}
+
+.ui-sheet-content.ui-sheet-side-left.ui-entering {
+  animation: ui-sheet-in-left 0.22s ease-out forwards;
+}
+.ui-sheet-content.ui-sheet-side-left.ui-leaving {
+  animation: ui-sheet-out-left 0.18s ease-in forwards;
+}
+@keyframes ui-sheet-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes ui-sheet-out-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+.ui-sheet-content.ui-sheet-side-right.ui-entering {
+  animation: ui-sheet-in-right 0.22s ease-out forwards;
+}
+.ui-sheet-content.ui-sheet-side-right.ui-leaving {
+  animation: ui-sheet-out-right 0.18s ease-in forwards;
+}
+@keyframes ui-sheet-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes ui-sheet-out-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+.ui-sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background-color: var(--neutral, #999);
+}
+
+.ui-busy {
+  opacity: 0.6;
+}

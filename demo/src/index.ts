@@ -15,6 +15,8 @@ import { List } from "mithril-lynx-ui/list";
 import type { ListRef } from "mithril-lynx-ui/list";
 import { FeedList } from "mithril-lynx-ui/feed-list";
 import type { FeedListRef } from "mithril-lynx-ui/feed-list";
+import { SheetBackdrop, SheetClose, SheetContent, SheetHandle, SheetRoot, SheetTrigger, SheetView } from "mithril-lynx-ui/sheet";
+import type { SheetSide } from "mithril-lynx-ui/sheet";
 import { Presence, PresenceContent } from "mithril-lynx-ui/presence";
 import { SliderIndicator, SliderRoot, SliderThumb, SliderTrack } from "mithril-lynx-ui/slider";
 import { SortableItem, SortableRoot } from "mithril-lynx-ui/sortable";
@@ -71,6 +73,8 @@ const state = {
   feedRefreshing: false,
   feedLoadCount: 0,
   feedLog: [] as string[],
+  sheetSide: "bottom" as SheetSide,
+  sheetLog: [] as string[],
 };
 
 // Filled in on mount by <Input>; the Mithril stand-in for useImperativeHandle.
@@ -701,6 +705,52 @@ const Root: m.Component = {
           }),
         ),
         m("text", { class: "Row-note" }, state.feedLog.length === 0 ? "sin eventos aún" : state.feedLog.slice(-3).join(" · ")),
+      ),
+
+      ...section(
+        "SHEET",
+        row(
+          ...(["bottom", "top", "left", "right"] as SheetSide[]).map((side) =>
+            DemoButton(side, side === state.sheetSide ? "" : "ui-button--secondary", {
+              onClick: () => { state.sheetSide = side; shim.redraw(); },
+            }),
+          ),
+        ),
+        m(
+          SheetRoot,
+          {
+            side: state.sheetSide,
+            onOpen: () => { state.sheetLog.push("onOpen"); shim.redraw(); },
+            onClose: () => { state.sheetLog.push("onClose"); shim.redraw(); },
+          },
+          [
+            m(SheetTrigger, { className: "ui-button" }, m("text", { class: "ui-button-label" }, "Abrir sheet")),
+            m(SheetView, {}, [
+              m(SheetBackdrop, { className: "ui-sheet-backdrop", transition: true }),
+              m(
+                SheetContent,
+                {
+                  className: "ui-sheet-content",
+                  transition: true,
+                  innerStyle: state.sheetSide === "left" || state.sheetSide === "right" ? { width: "260px", height: "100%" } : { width: "100%" },
+                },
+                [
+                  state.sheetSide === "bottom" || state.sheetSide === "top"
+                    ? m("view", { style: { display: "flex", "justify-content": "center", "margin-bottom": "12px" } }, m(SheetHandle, {}))
+                    : null,
+                  m("text", { class: "PresenceCard-title" }, "Arrástrame para cerrar"),
+                  m(
+                    "text",
+                    { class: "PresenceCard-text" },
+                    `Entra desde "${state.sheetSide}". Arrastra hacia el borde de cierre o toca el fondo.`,
+                  ),
+                  row(m(SheetClose, { className: "ui-button" }, m("text", { class: "ui-button-label" }, "Cerrar"))),
+                ],
+              ),
+            ]),
+          ],
+        ),
+        m("text", { class: "Row-note" }, state.sheetLog.length === 0 ? "sin eventos aún" : state.sheetLog.join(" · ")),
       ),
 
       ...sectionTheme(),

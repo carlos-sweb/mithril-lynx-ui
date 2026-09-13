@@ -85,6 +85,10 @@
     "./feed-list": {
       "types": "./feed-list.d.ts",
       "default": "./feed-list.js"
+    },
+    "./sheet": {
+      "types": "./sheet.d.ts",
+      "default": "./sheet.js"
     }
   },
   "files": [
@@ -127,7 +131,9 @@
     "list.js",
     "list.d.ts",
     "feed-list.js",
-    "feed-list.d.ts"
+    "feed-list.d.ts",
+    "sheet.js",
+    "sheet.d.ts"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
