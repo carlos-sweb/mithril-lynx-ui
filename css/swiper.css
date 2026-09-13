@@ -1,0 +1,12 @@
+/* Optional default look for ./swiper.js — opt in with "ui-swiper".
+   Layout itself (track width/transform, item sizing) is all set inline by
+   swiper.js since it's computed from itemWidth/containerWidth, not
+   themeable — this file only adds a resting look. */
+
+.ui-swiper {
+  border-radius: var(--ui-radius-md, 8px);
+}
+
+.ui-swiper-item {
+  overflow: hidden;
+}

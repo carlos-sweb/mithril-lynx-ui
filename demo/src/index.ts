@@ -23,6 +23,8 @@ import { Presence, PresenceContent } from "mithril-lynx-ui/presence";
 import { SliderIndicator, SliderRoot, SliderThumb, SliderTrack } from "mithril-lynx-ui/slider";
 import { SortableItem, SortableRoot } from "mithril-lynx-ui/sortable";
 import { SwipeAction } from "mithril-lynx-ui/swipe-action";
+import { Swiper } from "mithril-lynx-ui/swiper";
+import type { SwiperRef } from "mithril-lynx-ui/swiper";
 import { Switch, SwitchThumb, SwitchTrack } from "mithril-lynx-ui/switch";
 
 import "./style.css";
@@ -79,6 +81,9 @@ const state = {
   sheetLog: [] as string[],
   popoverPlacement: "bottom" as PopoverPlacement,
   popoverLog: [] as string[],
+  swiperItems: ["Uno", "Dos", "Tres", "Cuatro"],
+  swiperIndex: 0,
+  swiperLog: [] as string[],
 };
 
 // Filled in on mount by <Input>; the Mithril stand-in for useImperativeHandle.
@@ -87,6 +92,8 @@ const nombreRef: Record<string, () => Promise<unknown>> = {};
 const listRef: Partial<ListRef> = {};
 // Filled in on mount by <FeedList>.
 const feedListRef: Partial<FeedListRef> = {};
+// Filled in on mount by <Swiper>.
+const swiperRef: Partial<SwiperRef> = {};
 
 const TOKENS = [
   { name: "--canvas", modifier: "canvas" },
@@ -788,6 +795,34 @@ const Root: m.Component = {
           ],
         ),
         m("text", { class: "Row-note" }, state.popoverLog.length === 0 ? "sin eventos aún" : state.popoverLog.join(" · ")),
+      ),
+
+      ...section(
+        "SWIPER",
+        m(Swiper, {
+          className: "ui-swiper",
+          items: state.swiperItems,
+          itemWidth: 280,
+          itemHeight: 140,
+          containerWidth: 280,
+          duration: 300,
+          swiperRef,
+          onChange: (index: number) => { state.swiperIndex = index; shim.redraw(); },
+          onSwipeStart: () => { state.swiperLog.push("start"); shim.redraw(); },
+          onSwipeEnd: () => { state.swiperLog.push("end"); shim.redraw(); },
+          renderItem: (item: string, index: number) =>
+            m(
+              "view",
+              { style: { width: "100%", height: "100%", display: "flex", "align-items": "center", "justify-content": "center", "background-color": index % 2 === 0 ? "#e0e0e0" : "#5b5b5b" } },
+              m("text", { class: "PresenceCard-title", style: { color: index % 2 === 0 ? "#000" : "#fff" } }, item),
+            ),
+        }),
+        row(
+          DemoButton("Anterior", "ui-button--secondary", { onClick: () => swiperRef.swipePrev?.() }),
+          DemoButton("Siguiente", "ui-button--secondary", { onClick: () => swiperRef.swipeNext?.() }),
+        ),
+        m("text", { class: "Row-note" }, `Índice: ${state.swiperIndex + 1} / ${state.swiperItems.length}`),
+        m("text", { class: "Row-note" }, state.swiperLog.length === 0 ? "sin eventos de swipe aún" : state.swiperLog.slice(-3).join(" · ")),
       ),
 
       ...sectionTheme(),

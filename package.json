@@ -93,6 +93,10 @@
     "./popover": {
       "types": "./popover.d.ts",
       "default": "./popover.js"
+    },
+    "./swiper": {
+      "types": "./swiper.d.ts",
+      "default": "./swiper.js"
     }
   },
   "files": [
@@ -139,7 +143,9 @@
     "sheet.js",
     "sheet.d.ts",
     "popover.js",
-    "popover.d.ts"
+    "popover.d.ts",
+    "swiper.js",
+    "swiper.d.ts"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
