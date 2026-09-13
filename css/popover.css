@@ -1,0 +1,47 @@
+/* Optional default look for ./popover.js — opt in with "ui-popover-backdrop" /
+   "ui-popover-content". lynx-ui itself ships no CSS; this exists so a
+   mithril-lynx app gets a presentable popover without a utility framework.
+   Luna tokens only.
+
+   The entering/leaving/animating classes only appear when the caller passes
+   `transition: true` to PopoverBackdrop/PopoverContent (popover.js's own
+   popoverClasses omits them otherwise, matching dialog.css's own
+   convention) — set it to get these animations at all. */
+
+.ui-popover-backdrop {
+  background-color: transparent;
+}
+
+.ui-popover-content {
+  min-width: 120px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background-color: var(--paper);
+  opacity: 0;
+}
+
+.ui-popover-content.ui-open {
+  opacity: 1;
+}
+
+.ui-popover-content.ui-entering {
+  animation: ui-popover-content-in 0.16s ease-out forwards;
+}
+
+.ui-popover-content.ui-leaving {
+  animation: ui-popover-content-out 0.12s ease-in forwards;
+}
+
+@keyframes ui-popover-content-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes ui-popover-content-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.94); }
+}
+
+.ui-busy {
+  opacity: 0.6;
+}

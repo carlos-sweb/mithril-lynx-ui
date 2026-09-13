@@ -89,6 +89,10 @@
     "./sheet": {
       "types": "./sheet.d.ts",
       "default": "./sheet.js"
+    },
+    "./popover": {
+      "types": "./popover.d.ts",
+      "default": "./popover.js"
     }
   },
   "files": [
@@ -133,7 +137,9 @@
     "feed-list.js",
     "feed-list.d.ts",
     "sheet.js",
-    "sheet.d.ts"
+    "sheet.d.ts",
+    "popover.js",
+    "popover.d.ts"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

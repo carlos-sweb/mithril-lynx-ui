@@ -17,6 +17,8 @@ import { FeedList } from "mithril-lynx-ui/feed-list";
 import type { FeedListRef } from "mithril-lynx-ui/feed-list";
 import { SheetBackdrop, SheetClose, SheetContent, SheetHandle, SheetRoot, SheetTrigger, SheetView } from "mithril-lynx-ui/sheet";
 import type { SheetSide } from "mithril-lynx-ui/sheet";
+import { PopoverArrow, PopoverBackdrop, PopoverContent, PopoverPositioner, PopoverRoot, PopoverTrigger } from "mithril-lynx-ui/popover";
+import type { PopoverPlacement } from "mithril-lynx-ui/popover";
 import { Presence, PresenceContent } from "mithril-lynx-ui/presence";
 import { SliderIndicator, SliderRoot, SliderThumb, SliderTrack } from "mithril-lynx-ui/slider";
 import { SortableItem, SortableRoot } from "mithril-lynx-ui/sortable";
@@ -75,6 +77,8 @@ const state = {
   feedLog: [] as string[],
   sheetSide: "bottom" as SheetSide,
   sheetLog: [] as string[],
+  popoverPlacement: "bottom" as PopoverPlacement,
+  popoverLog: [] as string[],
 };
 
 // Filled in on mount by <Input>; the Mithril stand-in for useImperativeHandle.
@@ -751,6 +755,39 @@ const Root: m.Component = {
           ],
         ),
         m("text", { class: "Row-note" }, state.sheetLog.length === 0 ? "sin eventos aún" : state.sheetLog.join(" · ")),
+      ),
+
+      ...section(
+        "POPOVER",
+        row(
+          ...(["top", "bottom", "left", "right"] as PopoverPlacement[]).map((placement) =>
+            DemoButton(placement, placement === state.popoverPlacement ? "" : "ui-button--secondary", {
+              onClick: () => { state.popoverPlacement = placement; shim.redraw(); },
+            }),
+          ),
+        ),
+        m(
+          PopoverRoot,
+          {
+            onOpen: () => { state.popoverLog.push("onOpen"); shim.redraw(); },
+            onClose: () => { state.popoverLog.push("onClose"); shim.redraw(); },
+          },
+          [
+            m(PopoverBackdrop, {}),
+            m(PopoverTrigger, { className: "ui-button" }, m("text", { class: "ui-button-label" }, "Abrir popover")),
+            m(
+              PopoverPositioner,
+              { placement: state.popoverPlacement, placementOffset: 8 },
+              [
+                m(PopoverContent, { className: "ui-popover-content", transition: true }, [
+                  m("text", { class: "PresenceCard-text" }, `Posicionado: ${state.popoverPlacement}`),
+                ]),
+                m(PopoverArrow, { size: 8, color: "var(--paper, #fff)" }),
+              ],
+            ),
+          ],
+        ),
+        m("text", { class: "Row-note" }, state.popoverLog.length === 0 ? "sin eventos aún" : state.popoverLog.join(" · ")),
       ),
 
       ...sectionTheme(),
