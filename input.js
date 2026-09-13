@@ -7,16 +7,37 @@
 // LynxViewBuilder) they mount without error and render at zero size. See the
 // README's native-interop section.
 //
-// One deliberate divergence from the original, and it's a simplification
-// rather than a gap. lynx-ui runs its components on the background thread,
-// so an input event lands on the main thread and has to be forwarded across;
-// to keep typing from racing that hop it marks the field readonly on the
-// main thread via Main Thread Scripting, ships the event over, then unlocks.
-// A mithril-lynx app in main-thread-owned mode has no hop at all — the
-// handler already runs where the event arrives — so controlled input is just
-// synchronous here, and none of that machinery is needed. (An app that moves
-// its logic to the background thread would reintroduce the hop; that's the
-// case mithril-lynx's named-handler registry exists for.)
+// One deliberate divergence from the original, confirmed closed rather than
+// just assumed (project plan's own "Input's live-echo MTS optimization"
+// item — read main-thread.js's and background.js's own headers before
+// concluding this, not just the earlier main-thread-owned-mode reasoning
+// below). Real lynx-ui's `Input` binds its native `<input>`'s content event
+// with `main-thread:bindinput`, not a plain `bindinput`: ReactLynx runs an
+// app's OWN component tree on the BACKGROUND thread by default, so every
+// keystroke's event handler is one hop away from where it lands unless MTS
+// pulls it onto the main thread instead — and once pulled there, upstream
+// marks the field readonly on the main thread FIRST (a hop-free write),
+// ships the value across via runOnBackground, and unlocks it again once the
+// controlled round-trip settles, purely to stop a second keystroke from
+// racing that hop and corrupting what the native editor shows mid-flight.
+//
+// mithril-lynx has no equivalent scenario to guard against, in EITHER of
+// its render modes — not just the main-thread-owned one this file already
+// targets. Confirmed by reading both cross-thread adapters directly:
+// background.js's own header states it plainly ("Mithril never renders on
+// the background thread in data-channel mode") — the background side is a
+// plain-JS data store, with zero Mithril component tree on it in any mode.
+// main-thread.js's setupApp() is the ONLY place a Mithril root ever renders,
+// so an `oninput` handler on a native `<input>` ALWAYS executes on the same
+// thread the native event was delivered on, full stop — there's no
+// mithril-lynx configuration where "logic moves to the background thread"
+// also moves Input's own rendering there, unlike ReactLynx's default. The
+// named cross-thread registry (registerHandler/runOnMainThread/
+// runOnBackground) exists for a background-owned BUSINESS-LOGIC layer to
+// reach back into main-thread UI actions deliberately — not something a
+// native input event ever needs to cross to reach its own handler. So
+// controlled input is just synchronous code here, unconditionally, and none
+// of upstream's readonly-lock machinery has anything to protect against.
 //
 // The value of a controlled field is pushed imperatively through the native
 // element's own setValue, exactly as upstream does — it is NOT a rendered
