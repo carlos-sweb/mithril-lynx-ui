@@ -1,0 +1,9 @@
+/* Optional default look for ./layout.js — opt in with "ui-divider".
+   Box/Stack/Row/Column/Center/Spacer/ZStack/Grid/GridItem/AspectRatio are
+   pure arrangement with no visual opinion of their own, so nothing to add
+   here for them. */
+
+.ui-divider {
+  background-color: var(--neutral, #d0d0d0);
+  flex-shrink: 0; /* don't let a flex Stack crush it to nothing under tight space */
+}

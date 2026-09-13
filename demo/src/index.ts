@@ -26,6 +26,7 @@ import { SwipeAction } from "mithril-lynx-ui/swipe-action";
 import { Swiper } from "mithril-lynx-ui/swiper";
 import type { SwiperRef } from "mithril-lynx-ui/swiper";
 import { Switch, SwitchThumb, SwitchTrack } from "mithril-lynx-ui/switch";
+import { AspectRatio, Center, Divider, Grid, GridItem, Row, Spacer, ZStack } from "mithril-lynx-ui/layout";
 
 import "./style.css";
 
@@ -131,6 +132,15 @@ function DemoButton(text: string, variant: string, attrs: Record<string, unknown
     Button,
     Object.assign({ className: `ui-button ${variant}` }, attrs),
     m("text", { class: "ui-button-label" }, text),
+  );
+}
+
+/** A small colored box with a label — used only to make LAYOUT's arrangement demos visible. */
+function layoutChip(label: string, color: string) {
+  return m(
+    "view",
+    { style: { padding: "12px", "border-radius": "6px", "background-color": color, display: "flex", "align-items": "center", "justify-content": "center" } },
+    m("text", { style: { color: "#fff" } }, label),
   );
 }
 
@@ -823,6 +833,52 @@ const Root: m.Component = {
         ),
         m("text", { class: "Row-note" }, `Índice: ${state.swiperIndex + 1} / ${state.swiperItems.length}`),
         m("text", { class: "Row-note" }, state.swiperLog.length === 0 ? "sin eventos de swipe aún" : state.swiperLog.slice(-3).join(" · ")),
+      ),
+
+      ...section(
+        "LAYOUT",
+        m("text", { class: "Row-note" }, "Row + Spacer"),
+        m(
+          Row,
+          { gap: 8, align: "center", style: { width: "100%" } },
+          [
+            layoutChip("1", "#8a2be2"),
+            layoutChip("2", "#2e8b57"),
+            m(Spacer, {}),
+            layoutChip("fin", "#b8860b"),
+          ],
+        ),
+
+        m(Divider, { style: { margin: "16px 0px" } }),
+
+        m("text", { class: "Row-note" }, "Grid (3 columnas, un item con colSpan)"),
+        m(
+          Grid,
+          { columns: 3, gap: 8 },
+          [
+            m(GridItem, { colSpan: 2 }, layoutChip("colSpan 2", "#c0392b")),
+            layoutChip("3", "#2980b9"),
+            layoutChip("4", "#2980b9"),
+            layoutChip("5", "#2980b9"),
+            layoutChip("6", "#2980b9"),
+          ],
+        ),
+
+        m(Divider, { style: { margin: "16px 0px" } }),
+
+        m("text", { class: "Row-note" }, "AspectRatio + ZStack + Center"),
+        m(
+          AspectRatio,
+          { ratio: 16 / 9 },
+          m(
+            ZStack,
+            { style: { width: "100%", height: "100%", "border-radius": "8px", overflow: "hidden" } },
+            [
+              m("view", { style: { width: "100%", height: "100%", "background-color": "#34495e" } }),
+              m(Center, { style: { width: "100%", height: "100%" } }, m("text", { style: { color: "#fff", "font-weight": "bold" } }, "16:9")),
+            ],
+          ),
+        ),
       ),
 
       ...sectionTheme(),
