@@ -908,7 +908,7 @@ const Root: m.Component = {
               m(DrawerContent, { className: "ui-drawer-content" }, [
                 m("text", { class: "PresenceCard-title" }, "Navegación"),
                 ...["Inicio", "Ajustes", "Perfil", "Salir"].map((label) =>
-                  m("text", { key: label, class: "PresenceCard-text", style: { padding: "12px 0px" } }, label),
+                  m("text", { class: "PresenceCard-text", style: { padding: "12px 0px" } }, label),
                 ),
                 row(m(DrawerClose, { className: "ui-button ui-button--secondary" }, m("text", { class: "ui-button-label" }, "Cerrar"))),
               ]),
