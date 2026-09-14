@@ -101,6 +101,10 @@
     "./layout": {
       "types": "./layout.d.ts",
       "default": "./layout.js"
+    },
+    "./drawer": {
+      "types": "./drawer.d.ts",
+      "default": "./drawer.js"
     }
   },
   "files": [
@@ -151,7 +155,9 @@
     "swiper.js",
     "swiper.d.ts",
     "layout.js",
-    "layout.d.ts"
+    "layout.d.ts",
+    "drawer.js",
+    "drawer.d.ts"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

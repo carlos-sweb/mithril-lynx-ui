@@ -1,0 +1,88 @@
+/* Optional default look for ./drawer.js — opt in with "ui-drawer-backdrop" /
+   "ui-drawer-content". Independent class names from sheet.css's own
+   "ui-sheet-backdrop"/"ui-sheet-content" on purpose (see drawer.js's own
+   header) — a Drawer and a bottom Sheet can carry different looks in the
+   same app without one selector fighting the other, even though both are
+   driven by the exact same sheet.js engine underneath. The selectors below
+   only add "ui-drawer-*" as the identity class; the actual per-edge
+   in/out state (".ui-sheet-side-left.ui-entering", etc.) still comes from
+   sheet.js's own sheetClasses() output, which drawer.js's wrappers pass
+   through unchanged — that's what these selectors key off of, alongside
+   the drawer's own class, rather than redefining it.
+
+   Only left/right are covered — a Drawer conventionally never uses top/
+   bottom (that's Sheet's own territory). Passing side:"top"/"bottom" to
+   DrawerRoot still works functionally (sheet.js doesn't validate this),
+   it just won't get an animation from THIS file — reach for sheet.css's
+   own ui-sheet-content class instead if you genuinely want that. */
+
+.ui-drawer-backdrop {
+  background-color: var(--neutral-film, rgba(0, 0, 0, 0.5));
+  opacity: 0;
+}
+
+.ui-drawer-backdrop.ui-open {
+  opacity: 1;
+}
+
+.ui-drawer-backdrop.ui-entering {
+  animation: ui-drawer-backdrop-in 0.18s ease-out forwards;
+}
+
+.ui-drawer-backdrop.ui-leaving {
+  animation: ui-drawer-backdrop-out 0.15s ease-in forwards;
+}
+
+@keyframes ui-drawer-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ui-drawer-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.ui-drawer-content {
+  width: 280px;
+  padding: 20px;
+  background-color: var(--paper);
+}
+
+.ui-drawer-content.ui-sheet-side-left {
+  border-radius: 0 16px 16px 0;
+}
+
+.ui-drawer-content.ui-sheet-side-right {
+  border-radius: 16px 0 0 16px;
+}
+
+.ui-drawer-content.ui-sheet-side-left.ui-entering {
+  animation: ui-drawer-in-left 0.22s ease-out forwards;
+}
+.ui-drawer-content.ui-sheet-side-left.ui-leaving {
+  animation: ui-drawer-out-left 0.18s ease-in forwards;
+}
+@keyframes ui-drawer-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes ui-drawer-out-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+.ui-drawer-content.ui-sheet-side-right.ui-entering {
+  animation: ui-drawer-in-right 0.22s ease-out forwards;
+}
+.ui-drawer-content.ui-sheet-side-right.ui-leaving {
+  animation: ui-drawer-out-right 0.18s ease-in forwards;
+}
+@keyframes ui-drawer-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes ui-drawer-out-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}

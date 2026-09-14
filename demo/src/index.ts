@@ -27,6 +27,8 @@ import { Swiper } from "mithril-lynx-ui/swiper";
 import type { SwiperRef } from "mithril-lynx-ui/swiper";
 import { Switch, SwitchThumb, SwitchTrack } from "mithril-lynx-ui/switch";
 import { AspectRatio, Center, Divider, Grid, GridItem, Row, Spacer, ZStack } from "mithril-lynx-ui/layout";
+import { DrawerBackdrop, DrawerClose, DrawerContent, DrawerRoot, DrawerTrigger, DrawerView } from "mithril-lynx-ui/drawer";
+import type { DrawerSide } from "mithril-lynx-ui/drawer";
 
 import "./style.css";
 
@@ -85,6 +87,8 @@ const state = {
   swiperItems: ["Uno", "Dos", "Tres", "Cuatro"],
   swiperIndex: 0,
   swiperLog: [] as string[],
+  drawerSide: "left" as DrawerSide,
+  drawerLog: [] as string[],
 };
 
 // Filled in on mount by <Input>; the Mithril stand-in for useImperativeHandle.
@@ -879,6 +883,39 @@ const Root: m.Component = {
             ],
           ),
         ),
+      ),
+
+      ...section(
+        "DRAWER",
+        row(
+          ...(["left", "right"] as DrawerSide[]).map((side) =>
+            DemoButton(side, side === state.drawerSide ? "" : "ui-button--secondary", {
+              onClick: () => { state.drawerSide = side; shim.redraw(); },
+            }),
+          ),
+        ),
+        m(
+          DrawerRoot,
+          {
+            side: state.drawerSide,
+            onOpen: () => { state.drawerLog.push("onOpen"); shim.redraw(); },
+            onClose: () => { state.drawerLog.push("onClose"); shim.redraw(); },
+          },
+          [
+            m(DrawerTrigger, { className: "ui-button" }, m("text", { class: "ui-button-label" }, "Abrir menú")),
+            m(DrawerView, {}, [
+              m(DrawerBackdrop, {}),
+              m(DrawerContent, { className: "ui-drawer-content" }, [
+                m("text", { class: "PresenceCard-title" }, "Navegación"),
+                ...["Inicio", "Ajustes", "Perfil", "Salir"].map((label) =>
+                  m("text", { key: label, class: "PresenceCard-text", style: { padding: "12px 0px" } }, label),
+                ),
+                row(m(DrawerClose, { className: "ui-button ui-button--secondary" }, m("text", { class: "ui-button-label" }, "Cerrar"))),
+              ]),
+            ]),
+          ],
+        ),
+        m("text", { class: "Row-note" }, state.drawerLog.length === 0 ? "sin eventos aún" : state.drawerLog.slice(-3).join(" · ")),
       ),
 
       ...sectionTheme(),
