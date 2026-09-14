@@ -9,7 +9,12 @@
    — set it to get these animations at all. */
 
 .ui-sheet-backdrop {
-  background-color: var(--neutral-film, rgba(0, 0, 0, 0.5));
+  /* --neutral-film (rgba(0,0,0,0.05) on luna-light) is a subtle hover/press
+     wash, not a modal scrim — it made the backdrop nearly invisible on
+     device. --backdrop is Luna's own dedicated token for exactly this
+     (0.25 light / 0.32 dark). Found via a user report that a Drawer (built
+     on this same sheet.js engine) had no visible dimming at all. */
+  background-color: var(--backdrop, rgba(0, 0, 0, 0.5));
   opacity: 0;
 }
 
@@ -44,6 +49,33 @@
 .ui-sheet-side-top { border-radius: 0 0 16px 16px; }
 .ui-sheet-side-left { border-radius: 0 16px 16px 0; }
 .ui-sheet-side-right { border-radius: 16px 0 0 16px; }
+
+/* Real, device-confirmed bug this block fixes: unlike dialog.css/
+   popover.css (whose base `.ui-dialog-content`/`.ui-popover-content` rule
+   sets `opacity: 0` UNCONDITIONALLY, matching their own enter-keyframe's
+   `from`), sheet.css previously had no equivalent resting position for
+   `transform` — so a just-mounted, not-yet-`ui-entering` sheet (state
+   Left, class `ui-closed` only, ~8 frames right after mount) rendered at
+   its plain, untransformed position, i.e. fully OPEN, before the entering
+   keyframe applied a frame later and snapped it to the `from: translateX/Y
+   (±100%)` starting point — a visible flash-open-then-vanish-then-slide-in
+   on every single open. Scoping the closed-position transform to
+   `.ui-closed` (true only for state Left and Leaving — see
+   resolveAnimationStatus()) fixes it without the unconditioned-base
+   version's own risk: setting this transform on the BARE
+   `.ui-sheet-content.ui-sheet-side-*` selector (no `.ui-closed`) would
+   have made the fully-open, no-longer-animating resting state (class
+   `ui-open` only, no `ui-entering`) snap BACK off-screen the instant the
+   entering animation's own `.ui-entering` class (and its `animation:`
+   property) is removed at Entered, since removing that class removes the
+   `forwards`-held computed style along with it, falling through to
+   whatever the next-highest-priority rule says. `.ui-closed` is exactly
+   and only true while the content should genuinely be hidden, so it can't
+   regress that way. */
+.ui-sheet-content.ui-sheet-side-bottom.ui-closed { transform: translateY(100%); }
+.ui-sheet-content.ui-sheet-side-top.ui-closed { transform: translateY(-100%); }
+.ui-sheet-content.ui-sheet-side-left.ui-closed { transform: translateX(-100%); }
+.ui-sheet-content.ui-sheet-side-right.ui-closed { transform: translateX(100%); }
 
 /* Slides fully off-screen (100% of the CONTENT's own box, not the
    viewport) to/from its resting position — one keyframe pair per edge,

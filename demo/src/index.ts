@@ -904,8 +904,8 @@ const Root: m.Component = {
           [
             m(DrawerTrigger, { className: "ui-button" }, m("text", { class: "ui-button-label" }, "Abrir menú")),
             m(DrawerView, {}, [
-              m(DrawerBackdrop, {}),
-              m(DrawerContent, { className: "ui-drawer-content" }, [
+              m(DrawerBackdrop, { transition: true }),
+              m(DrawerContent, { className: "ui-drawer-content", transition: true }, [
                 m("text", { class: "PresenceCard-title" }, "Navegación"),
                 ...["Inicio", "Ajustes", "Perfil", "Salir"].map((label) =>
                   m("text", { class: "PresenceCard-text", style: { padding: "12px 0px" } }, label),

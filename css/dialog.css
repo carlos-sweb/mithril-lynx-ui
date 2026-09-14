@@ -9,7 +9,12 @@
    presenceClassVariants) — set it to get these animations at all. */
 
 .ui-dialog-backdrop {
-  background-color: var(--neutral-film, rgba(0, 0, 0, 0.5));
+  /* --neutral-film (rgba(0,0,0,0.05) on luna-light) is a subtle hover/press
+     wash, not a modal scrim — it made the backdrop nearly invisible on
+     device. --backdrop is Luna's own dedicated token for exactly this
+     (0.25 light / 0.32 dark). Found via a user report that Drawer/Sheet
+     (this exact same rule, copy-pasted) had no visible dimming at all. */
+  background-color: var(--backdrop, rgba(0, 0, 0, 0.5));
   opacity: 0;
 }
 

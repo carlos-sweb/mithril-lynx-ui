@@ -17,7 +17,12 @@
    own ui-sheet-content class instead if you genuinely want that. */
 
 .ui-drawer-backdrop {
-  background-color: var(--neutral-film, rgba(0, 0, 0, 0.5));
+  /* --neutral-film (rgba(0,0,0,0.05) on luna-light) is a subtle hover/press
+     wash, not a modal scrim — using it here (a copy-paste from an earlier
+     component) made the backdrop nearly invisible. --backdrop is Luna's
+     own dedicated token for exactly this (0.25 light / 0.32 dark) — see
+     also dialog.css's/sheet.css's identical fix, found the same way. */
+  background-color: var(--backdrop, rgba(0, 0, 0, 0.5));
   opacity: 0;
 }
 
@@ -25,12 +30,15 @@
   opacity: 1;
 }
 
+/* Same duration/easing as .ui-drawer-content's own in/out below (0.22s /
+   0.18s), deliberately — so the dim and the slide finish at the same
+   instant instead of one lagging the other. */
 .ui-drawer-backdrop.ui-entering {
-  animation: ui-drawer-backdrop-in 0.18s ease-out forwards;
+  animation: ui-drawer-backdrop-in 0.22s ease-out forwards;
 }
 
 .ui-drawer-backdrop.ui-leaving {
-  animation: ui-drawer-backdrop-out 0.15s ease-in forwards;
+  animation: ui-drawer-backdrop-out 0.18s ease-in forwards;
 }
 
 @keyframes ui-drawer-backdrop-in {
@@ -49,13 +57,42 @@
   background-color: var(--paper);
 }
 
-.ui-drawer-content.ui-sheet-side-left {
-  border-radius: 0 16px 16px 0;
+/* The REAL fix for square corners — found only after a user report that a
+   first attempt (just deleting drawer.css's OWN old
+   ".ui-drawer-content.ui-sheet-side-left/-right" radius rules) visibly did
+   nothing. Root cause: sheet.css ALSO carries its own, more general
+   ".ui-sheet-side-left"/".ui-sheet-side-right" rule (no ".ui-sheet-content"
+   required) — and DrawerContent's rendered node carries THAT class too,
+   since it's SheetContent underneath and sheet.js's own sheetClasses()
+   unconditionally adds "ui-sheet-side-<side>" regardless of which
+   className the caller (drawer.js) passed in. Both style sheets are
+   imported together via mithril-lynx-ui/styles.css, so sheet.css's rule
+   kept applying even with drawer.css's own copy deleted. Explicitly
+   overriding it here, with a MORE SPECIFIC two-class selector (0,2,0)
+   than sheet.css's own single-class one (0,1,0), wins regardless of
+   @import order — don't rely on source-order alone for this, a fragile tie
+   that would silently break again if the import order in styles.css ever
+   changes. */
+.ui-drawer-content.ui-sheet-side-left,
+.ui-drawer-content.ui-sheet-side-right,
+.ui-drawer-backdrop.ui-sheet-side-left,
+.ui-drawer-backdrop.ui-sheet-side-right {
+  border-radius: 0;
 }
 
-.ui-drawer-content.ui-sheet-side-right {
-  border-radius: 16px 0 0 16px;
-}
+/* Fixes the same real, device-found "flash open, then vanish, then slide
+   in" bug documented in sheet.css's own header — a just-mounted, not-yet-
+   `ui-entering` drawer (class `ui-closed` only) otherwise rendered at its
+   plain untransformed position (fully open) for the ~8 frames before
+   `ui-entering` applied and snapped it to the entering keyframe's own
+   `from` value. Scoped to `.ui-closed` specifically (not the bare
+   `.ui-drawer-content.ui-sheet-side-*` selector) so the fully-open,
+   finished-entering resting state doesn't regress by snapping back off-
+   screen once `.ui-entering` (and the `forwards`-held animation state it
+   carries) is removed at Entered — see sheet.css's own header for the
+   full reasoning, identical here. */
+.ui-drawer-content.ui-sheet-side-left.ui-closed { transform: translateX(-100%); }
+.ui-drawer-content.ui-sheet-side-right.ui-closed { transform: translateX(100%); }
 
 .ui-drawer-content.ui-sheet-side-left.ui-entering {
   animation: ui-drawer-in-left 0.22s ease-out forwards;

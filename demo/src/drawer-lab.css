@@ -1,0 +1,23 @@
+@import "mithril-lynx-ui/styles.css";
+
+.Lab {
+  width: 100%;
+  height: 100vh;
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.Lab-trigger {
+  font-size: 18px;
+  color: #111111;
+  padding: 16px 24px;
+}
+
+.Lab-title {
+  font-size: 22px;
+  font-weight: bold;
+  color: #111111;
+  padding: 4px 0px 24px 0px;
+}

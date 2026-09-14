@@ -10,6 +10,27 @@
    The class contract (.ui-entering/.ui-leaving/.ui-animating/.ui-open/
    .ui-closed) is lynx-ui's, so CSS written against it works unchanged. */
 
+/* Real, device-found bug this fixes (see sheet.css's own header for the
+   full mechanism, identical here): a just-mounted, not-yet-`ui-entering`
+   element (state Left, class `ui-closed` only, ~8 frames right after
+   mount) otherwise rendered at the plain, un-animated default (opacity 1,
+   fully visible) — since neither `.ui-presence-fade`/`.ui-presence-scale`
+   alone had a resting opacity of their own — before `.ui-entering` applied
+   a frame later and snapped it to the keyframe's own `from: opacity 0`,
+   i.e. a visible flash-in-then-vanish-then-fade-in on every single mount.
+   Scoped to `.ui-closed` (true only for state Left and Leaving) rather
+   than the bare class, so the fully-open resting state doesn't regress by
+   snapping back invisible once `.ui-entering` is removed at Entered — it
+   correctly falls through to the browser default (opacity 1) instead. */
+.ui-presence-fade.ui-closed {
+  opacity: 0;
+}
+
+.ui-presence-scale.ui-closed {
+  opacity: 0;
+  transform: scale(0.92);
+}
+
 @keyframes ui-presence-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
