@@ -7,45 +7,33 @@
 // LynxViewBuilder) they mount without error and render at zero size. See the
 // README's native-interop section.
 //
-// One deliberate divergence from the original, confirmed closed rather than
-// just assumed (project plan's own "Input's live-echo MTS optimization"
-// item — read main-thread.js's and background.js's own headers before
-// concluding this, not just the earlier main-thread-owned-mode reasoning
-// below). Real lynx-ui's `Input` binds its native `<input>`'s content event
-// with `main-thread:bindinput`, not a plain `bindinput`: ReactLynx runs an
-// app's OWN component tree on the BACKGROUND thread by default, so every
-// keystroke's event handler is one hop away from where it lands unless MTS
-// pulls it onto the main thread instead — and once pulled there, upstream
-// marks the field readonly on the main thread FIRST (a hop-free write),
-// ships the value across via runOnBackground, and unlocks it again once the
-// controlled round-trip settles, purely to stop a second keystroke from
-// racing that hop and corrupting what the native editor shows mid-flight.
+// One deliberate divergence from real lynx-ui's own `Input`, which binds
+// its native `<input>`'s content event with `main-thread:bindinput`, not a
+// plain `bindinput`: that lets it run the handler hop-free, and upstream
+// additionally locks the field readonly on the main thread while a
+// controlled value round-trips back, purely to stop a second keystroke
+// from racing that round trip and corrupting what the native editor shows
+// mid-flight.
 //
-// mithril-lynx has no equivalent scenario to guard against, in EITHER of
-// its render modes — not just the main-thread-owned one this file already
-// targets. Confirmed by reading both cross-thread adapters directly:
-// background.js's own header states it plainly ("Mithril never renders on
-// the background thread in data-channel mode") — the background side is a
-// plain-JS data store, with zero Mithril component tree on it in any mode.
-// main-thread.js's setupApp() is the ONLY place a Mithril root ever renders,
-// so an `oninput` handler on a native `<input>` ALWAYS executes on the same
-// thread the native event was delivered on, full stop — there's no
-// mithril-lynx configuration where "logic moves to the background thread"
-// also moves Input's own rendering there, unlike ReactLynx's default. The
-// named cross-thread registry (registerHandler/runOnMainThread/
-// runOnBackground) exists for a background-owned BUSINESS-LOGIC layer to
-// reach back into main-thread UI actions deliberately — not something a
-// native input event ever needs to cross to reach its own handler. So
-// controlled input is just synchronous code here, unconditionally, and none
-// of upstream's readonly-lock machinery has anything to protect against.
+// mithril-lynx's own component code always runs on the background thread —
+// a native `oninput` event is forwarded there from the main thread where it
+// actually fired, and this component's own `setValue()` push (see
+// internal/native-ref.js) crosses back the other way. So the same kind of
+// race upstream's readonly-lock guards against is real here too: if two
+// `setValue()` calls to the same field are in flight at once, there's no
+// guarantee the one sent first is the one that resolves first. Rather than
+// a readonly-lock, this relies on internal/native-ref.js's own per-id
+// invoke queue — every `invoke()` call to the same node is serialized, so
+// writes always land in the order they were issued regardless of how long
+// each one takes to cross the bridge.
 //
 // The value of a controlled field is pushed imperatively through the native
 // element's own setValue, exactly as upstream does — it is NOT a rendered
 // attribute, and diffing one onto the element would fight the native
 // editor's own state.
 
-import m from "mithril";
-import { wrapElement } from "mithril-lynx-v1/element";
+import m from "mithril-runtime";
+import { ensureId, createRef } from "../internal/native-ref.js";
 import { cx } from "../internal/cx.js";
 import { nativeBool } from "../internal/native.js";
 
@@ -55,8 +43,8 @@ function detailOf(event) {
 	return (event && event.detail) || {};
 }
 
-function makeRef(vnode) {
-	const el = wrapElement(vnode.dom);
+function makeRef(id) {
+	const el = createRef(id);
 
 	return {
 		focus: () => el.invoke("focus"),
@@ -71,9 +59,16 @@ function makeRef(vnode) {
 
 function fieldComponent(tag) {
 	return {
+		oninit(vnode) {
+			// A ref into the native element is by id (see internal/native-ref.js)
+			// — reuse the consumer's own `id` if they gave one, otherwise mint a
+			// stable one now and keep using it for this instance's whole life.
+			vnode.state.refId = ensureId(vnode.attrs.id);
+		},
+
 		oncreate(vnode) {
 			const s = vnode.state;
-			s.ref = makeRef(vnode);
+			s.ref = makeRef(s.refId);
 			// Hand the imperative API to whoever asked for it — the Mithril
 			// equivalent of upstream's useImperativeHandle(ref, ...). Callers pass
 			// a plain object and read methods off it afterwards.
@@ -96,7 +91,6 @@ function fieldComponent(tag) {
 
 		view(vnode) {
 			const {
-				id,
 				className,
 				style,
 				placeholder,
@@ -116,7 +110,7 @@ function fieldComponent(tag) {
 			} = vnode.attrs;
 
 			const attrs = Object.assign({}, inputProps, {
-				id,
+				id: vnode.state.refId,
 				class: cx(className, { "ui-readonly": readonly === true }),
 				style,
 				placeholder,

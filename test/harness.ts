@@ -50,9 +50,22 @@ export interface Mounted {
  */
 export function mount(root: () => unknown): Mounted {
 	lynxTestingEnv.switchToMainThread();
-	const pageId = __GetElementUniqueID(__CreatePage());
+	// __CreatePage()'s own element is the one @lynx-js/testing-environment
+	// actually appends into its real jsdom `document.body` — capture the
+	// handle (not just its id) and append our own root view into it, or
+	// lynx.createSelectorQuery()'s real document.querySelector() (used by
+	// src/internal/native-ref.js — see docs/native-papi/papi-01-imperative-refs.md)
+	// can never reach anything under it. Missing this is a silent gap, not
+	// an error: everything else (patch application, __papiCalls-based
+	// assertions) works identically whether or not the tree is actually
+	// connected to `document`, so this went unnoticed until a component
+	// needed a real selector-query lookup to succeed.
+	const page = __CreatePage();
+	const pageId = __GetElementUniqueID(page);
 	const applier = createPatchApplier(pageId);
-	applier.registerPageRoot(__CreateView(pageId));
+	const view = __CreateView(pageId);
+	__AppendElement(page, view);
+	applier.registerPageRoot(view);
 
 	lynxTestingEnv.switchToBackgroundThread();
 	const app = renderApp({

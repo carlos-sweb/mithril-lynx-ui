@@ -45,8 +45,8 @@
 // always dispatched by native from outside any render) redraws directly,
 // same as every other component's onChange convention in this project.
 
-import m from "mithril";
-import shim from "mithril-lynx-v1";
+import m from "mithril-runtime";
+import { redraw } from "mithril-lynx/mount-redraw";
 import { Button } from "../button/button.js";
 import { Checkbox } from "../checkbox/checkbox.js";
 import { Input, TextArea } from "../input/input.js";
@@ -88,7 +88,7 @@ export const FormRoot = {
 			// that's still building that tree (confirmed against this shim's own
 			// source: a component's oncreate is queued to the flush list before
 			// it even recurses into rendering its children, so nesting doesn't
-			// change anything). Calling shim.redraw() — or the app's onChanged,
+			// change anything). Calling redraw() — or the app's onChanged,
 			// which almost always redraws itself — from ANY oncreate throws
 			// "Node is currently being rendered to and thus is locked", the same
 			// class of bug presence.js already hit. Not needed anyway: the
@@ -105,7 +105,7 @@ export const FormRoot = {
 				if (s.formData[name] === value) return;
 				s.formData = Object.assign({}, s.formData, { [name]: value });
 				if (typeof vnode.attrs.onChanged === "function") vnode.attrs.onChanged(s.formData);
-				shim.redraw();
+				redraw();
 			},
 
 			unregisterField: (name) => {
@@ -118,7 +118,7 @@ export const FormRoot = {
 				// field). Deferred one frame for the same reentrancy reason.
 				delayFrames(1, () => {
 					if (typeof vnode.attrs.onChanged === "function") vnode.attrs.onChanged(s.formData);
-					shim.redraw();
+					redraw();
 				});
 			},
 

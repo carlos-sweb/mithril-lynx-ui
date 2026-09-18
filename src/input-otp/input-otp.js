@@ -39,8 +39,8 @@
 // undefined callbacks called through `?.()`, i.e. a guaranteed no-op absent
 // a provider. Add real wiring here if/when a KeyboardAware root ships.
 
-import m from "mithril";
-import shim from "mithril-lynx-v1";
+import m from "mithril-runtime";
+import { redraw } from "mithril-lynx/mount-redraw";
 import { cx } from "../internal/cx.js";
 import { delayFrames } from "../internal/frames.js";
 import { nativeBool } from "../internal/native.js";
@@ -216,19 +216,19 @@ export const InputOTP = {
 				s.lastPushedValue = nextValue;
 				Promise.resolve(s.nativeRef?.setValue(nextValue)).catch(reportInputError);
 			}
-			shim.redraw();
+			redraw();
 		};
 
 		const handleFocus = () => {
 			s.focused = true;
 			if (typeof onFocus === "function") onFocus();
-			shim.redraw();
+			redraw();
 		};
 
 		const handleBlur = () => {
 			s.focused = false;
 			if (typeof onBlur === "function") onBlur();
-			shim.redraw();
+			redraw();
 		};
 
 		const handleTap = () => {
@@ -249,7 +249,7 @@ export const InputOTP = {
 			if (!isControlled) s.uncontrolledValue = nextValue;
 			s.lastPushedValue = nextValue;
 			s.emit(nextValue, displayedValue, vnode.attrs, fieldLength);
-			shim.redraw();
+			redraw();
 			return Promise.resolve(s.nativeRef?.setValue(nextValue));
 		};
 		s.inputRef.clear = () => s.inputRef.setValue("");

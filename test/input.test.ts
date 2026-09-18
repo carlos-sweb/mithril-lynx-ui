@@ -1,142 +1,137 @@
 import { describe, expect, it } from "@rstest/core";
-import m from "mithril";
-import shim from "mithril-lynx-v1";
+import m from "mithril-runtime";
 import { Input, TextArea } from "../src/input/input.js";
+import { mount, fire, type Mounted, type TestNode } from "./harness.js";
 
 // What's worth asserting here is the native contract: the attribute names and
 // value shapes that reach the element, the event payload unwrapping (Lynx
 // nests everything under `detail`), and that a controlled value is pushed
-// through the element's own setValue rather than diffed on as an attribute.
-
-const shimModule = ((shim as any).default ?? shim) as {
-  renderToPage(pageElement: unknown, vnode: unknown): unknown;
-  redraw(): void;
-};
-
-function mount(view: () => unknown): any {
-  lynxTestingEnv.switchToMainThread();
-  const page = __CreatePage("0", 0);
-  return shimModule.renderToPage(page, m({ view })) as any;
-}
+// through the element's own setValue (via the native-ref.js bridge — see
+// docs/native-papi/papi-01-imperative-refs.md) rather than diffed on as an
+// attribute.
 
 const papiCalls = (): { fn: string; args: unknown[] }[] => (globalThis as any).__papiCalls;
 
-const attrsOf = (node: any): Record<string, unknown> => {
-  const out: Record<string, unknown> = {};
-  for (const call of papiCalls()) {
-    if (call.fn === "__SetAttribute" && call.args[0] === node._handle) {
-      out[call.args[1] as string] = call.args[2];
-    }
-  }
-  return out;
-};
-
-const invocations = (node: any) =>
-  papiCalls()
-    .filter((c) => c.fn === "__InvokeUIMethod" && c.args[0] === node._handle)
-    .map((c) => ({ method: c.args[1] as string, params: c.args[2] as Record<string, unknown> }));
-
-function fire(node: any, type: string, detail: Record<string, unknown>) {
-  node._listeners[type].wrapped({ type, detail });
+function attrsOf(app: Mounted, node: TestNode): Record<string, unknown> {
+	const handle = app.applier.getHandle(node._id);
+	const out: Record<string, unknown> = {};
+	for (const call of papiCalls()) {
+		if (call.fn === "__SetAttribute" && call.args[0] === handle) out[call.args[1] as string] = call.args[2];
+	}
+	return out;
 }
 
+function invocations(app: Mounted, node: TestNode) {
+	const handle = app.applier.getHandle(node._id);
+	const calls = (globalThis as any).__nodesRefInvokeCalls as { element: unknown; method: string; params: unknown }[];
+	return calls.filter((c) => c.element === handle).map((c) => ({ method: c.method, params: c.params }));
+}
+
+// invoke() crosses internal/native-ref.js's per-id queue (see
+// docs/native-papi/papi-01-imperative-refs.md), which is at least two
+// microtask hops deep — a single `await Promise.resolve()` isn't always
+// enough to observe its effect. A macrotask flush is.
+const settle = () => new Promise((r) => setTimeout(r, 0));
+
 describe("input.js", () => {
-  it("renders a native <input> with the attribute names Lynx expects", () => {
-    const root = mount(() =>
-      m(Input, { className: "ui-input", placeholder: "Escribe", maxLength: 10, type: "number" }),
-    );
-    const input = root.firstChild;
+	it("renders a native <input> with the attribute names Lynx expects", () => {
+		const app = mount(() => m(Input, { className: "ui-input", placeholder: "Escribe", maxLength: 10, type: "number" }));
+		const input = app.root;
 
-    expect(input._tag).toBe("input");
-    const attrs = attrsOf(input);
-    expect(attrs.placeholder).toBe("Escribe");
-    // Everything crosses as a string: the shim mirrors the DOM, where
-    // setAttribute always stringifies. Native parses the numeric ones.
-    expect(attrs.maxlength).toBe("10");
-    expect(attrs.type).toBe("number");
-    expect(attrs["confirm-type"]).toBe("send");
-  });
+		expect(input.tag).toBe("input");
+		const attrs = attrsOf(app, input);
+		expect(attrs.placeholder).toBe("Escribe");
+		expect(attrs.maxlength).toBe("10");
+		expect(attrs.type).toBe("number");
+		expect(attrs["confirm-type"]).toBe("send");
+	});
 
-  it("sends booleans as strings, since a native element reads \"\" as not-set", () => {
-    const root = mount(() => m(Input, { readonly: true, showSoftInputOnFocus: false }));
-    const attrs = attrsOf(root.firstChild);
+	it('sends booleans as strings, since a native element reads "" as not-set', () => {
+		const app = mount(() => m(Input, { readonly: true, showSoftInputOnFocus: false }));
+		const attrs = attrsOf(app, app.root);
 
-    expect(attrs.readonly).toBe("true");
-    expect(attrs["show-soft-input-on-focus"]).toBe("false");
-  });
+		expect(attrs.readonly).toBe("true");
+		expect(attrs["show-soft-input-on-focus"]).toBe("false");
+	});
 
-  it("unwraps event payloads out of `detail`", () => {
-    const inputs: unknown[][] = [];
-    const confirmed: string[] = [];
-    const selections: number[][] = [];
-    const root = mount(() =>
-      m(Input, {
-        onInput: (...args: unknown[]) => inputs.push(args),
-        onConfirm: (v: string) => confirmed.push(v),
-        onSelectionChange: (a: number, b: number) => selections.push([a, b]),
-      }),
-    );
-    const input = root.firstChild;
+	it("unwraps event payloads out of `detail`", () => {
+		const inputs: unknown[][] = [];
+		const confirmed: string[] = [];
+		const selections: number[][] = [];
+		const app = mount(() =>
+			m(Input, {
+				onInput: (...args: unknown[]) => inputs.push(args),
+				onConfirm: (v: string) => confirmed.push(v),
+				onSelectionChange: (a: number, b: number) => selections.push([a, b]),
+			}),
+		);
+		const input = app.root;
 
-    fire(input, "input", { value: "hola", selectionStart: 4, selectionEnd: 4, isComposing: false });
-    expect(inputs.at(-1)).toEqual(["hola", 4, 4, false]);
+		fire(input, "input", { detail: { value: "hola", selectionStart: 4, selectionEnd: 4, isComposing: false } });
+		expect(inputs.at(-1)).toEqual(["hola", 4, 4, false]);
 
-    fire(input, "confirm", { value: "hola" });
-    expect(confirmed).toEqual(["hola"]);
+		fire(input, "confirm", { detail: { value: "hola" } });
+		expect(confirmed).toEqual(["hola"]);
 
-    fire(input, "selection", { selectionStart: 1, selectionEnd: 3 });
-    expect(selections.at(-1)).toEqual([1, 3]);
-  });
+		fire(input, "selection", { detail: { selectionStart: 1, selectionEnd: 3 } });
+		expect(selections.at(-1)).toEqual([1, 3]);
+	});
 
-  it("pushes a controlled value through setValue, not as an attribute", () => {
-    let value = "uno";
-    const root = mount(() => m(Input, { value }));
-    const input = root.firstChild;
+	it("pushes a controlled value through setValue, not as an attribute", async () => {
+		let value = "uno";
+		const app = mount(() => m(Input, { value }));
+		const input = app.root;
 
-    expect(invocations(input).at(-1)).toEqual({ method: "setValue", params: { value: "uno" } });
-    expect(attrsOf(input).value).toBeUndefined();
+		await settle(); // let the queued invoke() from oncreate settle
+		expect(invocations(app, input).at(-1)).toEqual({ method: "setValue", params: { value: "uno" } });
+		expect(attrsOf(app, input).value).toBeUndefined();
 
-    value = "dos";
-    shimModule.redraw();
-    expect(invocations(input).at(-1)).toEqual({ method: "setValue", params: { value: "dos" } });
-  });
+		value = "dos";
+		app.redraw();
+		await settle();
+		expect(invocations(app, input).at(-1)).toEqual({ method: "setValue", params: { value: "dos" } });
+	});
 
-  it("doesn't re-push an unchanged controlled value on every redraw", () => {
-    const root = mount(() => m(Input, { value: "quieto" }));
-    const before = invocations(root.firstChild).length;
+	it("doesn't re-push an unchanged controlled value on every redraw", async () => {
+		const app = mount(() => m(Input, { value: "quieto" }));
+		await settle();
+		const before = invocations(app, app.root).length;
 
-    shimModule.redraw();
-    shimModule.redraw();
+		app.redraw();
+		app.redraw();
+		await settle();
 
-    expect(invocations(root.firstChild).length).toBe(before);
-  });
+		expect(invocations(app, app.root).length).toBe(before);
+	});
 
-  it("seeds an uncontrolled field from defaultValue and then leaves it alone", () => {
-    const root = mount(() => m(Input, { defaultValue: "inicial" }));
-    const input = root.firstChild;
+	it("seeds an uncontrolled field from defaultValue and then leaves it alone", async () => {
+		const app = mount(() => m(Input, { defaultValue: "inicial" }));
+		const input = app.root;
+		await settle();
 
-    expect(invocations(input).at(-1)).toEqual({ method: "setValue", params: { value: "inicial" } });
+		expect(invocations(app, input).at(-1)).toEqual({ method: "setValue", params: { value: "inicial" } });
 
-    const before = invocations(input).length;
-    shimModule.redraw();
-    expect(invocations(input).length).toBe(before);
-  });
+		const before = invocations(app, input).length;
+		app.redraw();
+		await settle();
+		expect(invocations(app, input).length).toBe(before);
+	});
 
-  it("fills in the imperative handle on mount", async () => {
-    const ref: Record<string, unknown> = {};
-    const root = mount(() => m(Input, { inputRef: ref }));
+	it("fills in the imperative handle on mount", async () => {
+		const ref: Record<string, unknown> = {};
+		const app = mount(() => m(Input, { inputRef: ref }));
 
-    expect(typeof ref.focus).toBe("function");
-    expect(typeof ref.getValue).toBe("function");
+		expect(typeof ref.focus).toBe("function");
+		expect(typeof ref.getValue).toBe("function");
 
-    await (ref.focus as () => Promise<unknown>)();
-    expect(invocations(root.firstChild).some((i) => i.method === "focus")).toBe(true);
-  });
+		await (ref.focus as () => Promise<unknown>)();
+		expect(invocations(app, app.root).some((i) => i.method === "focus")).toBe(true);
+	});
 
-  it("TextArea renders a <textarea> and carries maxlines", () => {
-    const root = mount(() => m(TextArea, { className: "ui-textarea", maxLines: 4 }));
+	it("TextArea renders a <textarea> and carries maxlines", () => {
+		const app = mount(() => m(TextArea, { className: "ui-textarea", maxLines: 4 }));
 
-    expect(root.firstChild._tag).toBe("textarea");
-    expect(attrsOf(root.firstChild).maxlines).toBe("4");
-  });
+		expect(app.root.tag).toBe("textarea");
+		expect(attrsOf(app, app.root).maxlines).toBe("4");
+	});
 });
