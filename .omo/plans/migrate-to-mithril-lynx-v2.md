@@ -52,14 +52,25 @@ necesita (registrar un detector Y recibir sus callbacks cross-thread).
 | `mithril-lynx/element` (`wrapElement`) | draggable, input, feed-list, list, popover, slider, sheet, swipe-action, swiper | 9 |
 | `mithril-lynx/gesture` (`createGesture`) | sheet, swipe-action, swiper | 3 |
 | `mithril-lynx/list` (`createList`) | list (feed-list lo usa indirectamente vía list) | 1 directo, 2 con feed-list |
-| Ninguno de los tres | scope, button, switch, checkbox, radio-group, presence, form, dialog, input-otp, lazy-component, layout, drawer | 12 |
-| `sortable` usa `draggable` → hereda la dependencia de `wrapElement` indirectamente | — | — |
+| Ninguno de los tres (directo NI transitivo) | scope, button, switch, checkbox, radio-group, presence, dialog, lazy-component, layout | **9** |
+| Bloqueados TRANSITIVAMENTE (import relativo a un componente bloqueado, aunque ellos mismos no toquen element/gesture/list) | drawer (→sheet), form (→input), input-otp (→input), sortable (→draggable) | 4 |
 
-O sea: **12 de 24 componentes no necesitan nada de esto** — pueden portarse a
-v2 sin resolver ninguna de las preguntas de arquitectura de abajo. Los otros
-12 (draggable, sortable, input, feed-list, list, popover, slider, sheet,
-swipe-action, swiper, y sus consumidores) están bloqueados hasta que F0-real
-resuelva el punto 3.
+> **Corrección (2026-09-18)**: la primera versión de esta tabla contó 12
+> "libres" sin calcular el cierre transitivo de los imports relativos —
+> `drawer.js` importa `sheet.js` (bloqueado), `form.js` e `input-otp.js`
+> importan `input.js` (bloqueado), `sortable.js` importa `draggable.js`
+> (bloqueado). Recalculado programáticamente (script en el historial de
+> commits): el conjunto real, libre de toda dependencia directa o
+> transitiva, es **9**, no 12.
+
+O sea: **9 de 24 componentes no necesitan nada de esto** — pueden portarse a
+v2 sin resolver ninguna de las preguntas de arquitectura de abajo (de 22
+componentes totales, no 24 — scope y lazy-component no eran contados en el
+"24" original). Los otros 13 (draggable, feed-list, input, list, popover,
+slider, sheet, swipe-action, swiper, drawer, form, input-otp, sortable)
+están bloqueados — 9 de forma directa (usan
+`wrapElement`/`createGesture`/`createList`), 4 de forma transitiva
+(drawer/form/input-otp/sortable) — hasta que F0-real resuelva el punto 3.
 
 ## 3. Preguntas de F0 sin resolver todavía (investigación, no implementación)
 
