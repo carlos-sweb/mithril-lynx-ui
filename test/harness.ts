@@ -62,7 +62,24 @@ export function mount(root: () => unknown): Mounted {
 	// needed a real selector-query lookup to succeed.
 	const page = __CreatePage();
 	const pageId = __GetElementUniqueID(page);
-	const applier = createPatchApplier(pageId);
+	// onEvent: real forwarding, not skipped — needed for gesture testing
+	// specifically (see docs/native-papi/papi-05-native-gestures.md): a
+	// gesture's arena-claim decision lives entirely in mithril-lynx's
+	// apply-patch.js, on the "main thread" side, so there is no fake-dom
+	// node to fire directly on the way plain fire() does for every other
+	// event — the forwarded "gesturedown"/"gesturemove"/"gestureup" event
+	// is the only way a gesture's app-visible effect reaches a test at all.
+	// This mirrors exactly what background.js's own onEventFromMainThread
+	// handler does internally, just called directly instead of through the
+	// real lynx.getCoreContext() channel — same "skip the channel, not the
+	// dispatch" precedent the rest of this harness already follows.
+	let appRef: ReturnType<typeof renderApp> | null = null;
+	const applier = createPatchApplier(pageId, {
+		onEvent: (id: unknown, type: string, payload: Record<string, unknown>) => {
+			const node = (appRef?.document as any)?.getNodeById(id) as TestNode | undefined;
+			node?.dispatchEvent({ type, currentTarget: node, ...payload });
+		},
+	});
 	const view = __CreateView(pageId);
 	__AppendElement(page, view);
 	applier.registerPageRoot(view);
@@ -76,6 +93,7 @@ export function mount(root: () => unknown): Mounted {
 			lynxTestingEnv.switchToBackgroundThread();
 		},
 	});
+	appRef = app;
 
 	return {
 		// A getter, not a value captured once: some components replace their
@@ -159,6 +177,57 @@ export function styleOf(app: Mounted, node: TestNode): Record<string, unknown> {
 		if (call.fn === "__AddInlineStyle" && call.args[0] === handle) {
 			out[call.args[1] as string] = call.args[2];
 		}
+	}
+	return out;
+}
+
+// --- Native gesture testing (see docs/native-papi/papi-05-native-gestures.md) ---
+//
+// A gesture's arena-claim decision runs entirely on mithril-lynx's
+// apply-patch.js (main thread) — there's no fake-dom node to fire()
+// directly on the way every other event works. These extract the real
+// callbacks Op.SetGestureDetector registered (native invokes them through
+// a global `runWorklet` dispatcher, not directly — see
+// apply-patch.js's own header) and invoke them exactly the way native
+// would, with a stub controller recording every __SetGestureState/
+// __ConsumeGesture call it receives.
+
+export interface GestureController {
+	calls: { fn: string; args: unknown[] }[];
+	__SetGestureState(...args: unknown[]): void;
+	__ConsumeGesture(...args: unknown[]): void;
+}
+
+export function makeGestureController(): GestureController {
+	const calls: { fn: string; args: unknown[] }[] = [];
+	return {
+		calls,
+		__SetGestureState(...args: unknown[]) {
+			calls.push({ fn: "__SetGestureState", args });
+		},
+		__ConsumeGesture(...args: unknown[]) {
+			calls.push({ fn: "__ConsumeGesture", args });
+		},
+	};
+}
+
+/** { clientX, clientY } wrapped the way apply-patch.js's own coordsOf() unwraps it. */
+export function gestureTouch(clientX: number, clientY: number) {
+	return { params: { clientX, clientY } };
+}
+
+/**
+ * The registered onTouchesDown/onTouchesMove/onTouchesUp callbacks for
+ * `node`'s gesture — call with (gestureTouch(x, y), controller). `node`
+ * must have had setGestureDetector() called on it (directly, in a
+ * component's oncreate) for this to find anything.
+ */
+export function gestureCallbacksOf(app: Mounted, node: TestNode): Record<string, (event: unknown, controller: unknown) => void> {
+	const handle = app.applier.getHandle(node._id) as any;
+	const entries = (handle?.gesture?.config?.callbacks ?? []) as { name: string; callback: unknown }[];
+	const out: Record<string, (event: unknown, controller: unknown) => void> = {};
+	for (const entry of entries) {
+		out[entry.name] = (event, controller) => (globalThis as any).runWorklet(entry.callback, [event, controller]);
 	}
 	return out;
 }

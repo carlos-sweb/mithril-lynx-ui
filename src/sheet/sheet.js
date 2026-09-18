@@ -38,21 +38,18 @@
 // which covers the common visual case without needing cross-node drag
 // coordination the drag mechanism below was never designed for.
 //
-// Drag-to-dismiss is built on a REAL native gesture (mithril-lynx/gesture's
-// createGesture(), type "native"), NOT plain on*touch listeners — the FIRST
-// attempt used ./draggable.js directly and failed on device: a bottom
-// sheet's own closing drag is VERTICAL, the exact same axis the page's own
-// ancestor `<scroll-view>` cares about, and Draggable's plain touch
-// listeners have no gesture-arena priority to win that contest with — the
-// drag was silently swallowed by the page scroll instead of moving the
-// sheet at all. This is the identical problem swipe-action.js already
-// solved for its own (horizontal) drag, using the SAME
-// internal/gesture-controls.js fail()/interceptGesture() wrapper over the
-// SAME native primitive — reused here rather than re-solved. Unlike
-// SwipeAction (which must let a genuine vertical scroll pass through,
-// since it lives inline in a scrollable list), a sheet's own content is a
-// modal foreground surface once open, so it claims the gesture
-// unconditionally on touch-down rather than waiting to see which axis the
+// Drag-to-dismiss is built on a REAL native gesture (internal/gesture.js's
+// registerGesture(), see docs/native-papi/papi-05-native-gestures.md), NOT
+// plain on*touch listeners — the FIRST attempt used ./draggable.js directly
+// and failed on device: a bottom sheet's own closing drag is VERTICAL, the
+// exact same axis the page's own ancestor `<scroll-view>` cares about, and
+// Draggable's plain touch listeners have no gesture-arena priority to win
+// that contest with — the drag was silently swallowed by the page scroll
+// instead of moving the sheet at all. Unlike SwipeAction (which must let a
+// genuine vertical scroll pass through, since it lives inline in a
+// scrollable list), a sheet's own content is a modal foreground surface
+// once open, so it claims the gesture unconditionally on touch-down
+// (arenaPolicy `{mode:"claim"}`) rather than waiting to see which axis the
 // first move favors.
 //
 // Presence-group note: this is the SECOND component needing the exact
@@ -63,15 +60,14 @@
 // extracting a shared helper is real, separate work), but worth promoting
 // for real the next time a THIRD caller (Popover) needs it too.
 
-import m from "mithril";
-import shim from "mithril-lynx-v1";
-import { createGesture } from "mithril-lynx-v1/gesture";
-import { wrapElement } from "mithril-lynx-v1/element";
+import m from "mithril-runtime";
+import { redraw } from "mithril-lynx/mount-redraw";
+import { ensureId, createRef } from "../internal/native-ref.js";
+import { registerGesture } from "../internal/gesture.js";
 import { Button } from "../button/button.js";
 import { cx } from "../internal/cx.js";
-import { makeGestureControls } from "../internal/gesture-controls.js";
-import { renderChildren } from "../internal/press-legacy.js";
-import { PresenceState, Presence, resolveAnimationStatus, usePresence } from "../presence/presence-legacy.js";
+import { renderChildren } from "../internal/press.js";
+import { PresenceState, Presence, resolveAnimationStatus, usePresence } from "../presence/presence.js";
 import { createScope } from "../scope/scope.js";
 
 const sheetScope = createScope();
@@ -159,7 +155,7 @@ export const SheetRoot = {
 			groupState: actualShow ? PresenceState.Entering : PresenceState.Left,
 			setUncontrolledShow: (next) => {
 				s.uncontrolledShow = next;
-				shim.redraw();
+				redraw();
 			},
 			onOpen: vnode.attrs.onOpen,
 			onClose: vnode.attrs.onClose,
@@ -266,6 +262,11 @@ export const SheetContent = {
 		s.dragOffset = 0;
 		s.startX = 0;
 		s.startY = 0;
+		// A native ref (internal/native-ref.js) is by id; gesture
+		// registration itself (internal/gesture.js) isn't — it's called
+		// directly on the inner fake-dom node below, no id needed for that
+		// part.
+		s.refId = ensureId(null);
 	},
 
 	// vnode.dom is the OUTER (presence-animated, CSS-slide) node — see
@@ -279,47 +280,18 @@ export const SheetContent = {
 	// useScope() call from oncreate would read a POPPED scope stack (slider.js
 	// hit this same timing gap first; see its own header). view() below
 	// stashes the live context on vnode.state every render specifically so
-	// oncreate/the gesture callbacks (which run long after that particular
-	// view() call returns) always see the CURRENT ctx, not a stale one
-	// captured once at mount.
+	// oncreate (which runs long after that particular view() call returns)
+	// always sees the CURRENT ctx, not a stale one captured once at mount —
+	// the gesture event handlers themselves don't have this problem anymore:
+	// they're defined fresh inside view() below, closing over that render's
+	// own `ctx` directly.
 	oncreate(vnode) {
 		const s = vnode.state;
-		const inner = vnode.dom.firstChild;
-		s.innerEl = wrapElement(inner);
-
+		s.innerEl = createRef(s.refId);
 		if (!s.ctx.enableDragToClose) return;
-
-		const gesture = createGesture(inner, {
-			type: "native",
-			callbacks: {
-				onTouchesDown: (event, controller) => {
-					s.startX = event.params.clientX;
-					s.startY = event.params.clientY;
-					s.controls.interceptGesture(controller, true);
-				},
-				onTouchesMove: (event) => {
-					const dx = event.params.clientX - s.startX;
-					const dy = event.params.clientY - s.startY;
-					s.dragOffset = Math.max(0, closingDelta(s.ctx.resolvedSide, dx, dy));
-					s.innerEl.setStyleProperty("transform", sheetDragTransform(s.ctx.resolvedSide, s.dragOffset));
-				},
-				onTouchesUp: () => {
-					if (s.dragOffset >= s.ctx.dismissThreshold) {
-						if (typeof s.ctx.onShowChange === "function") s.ctx.onShowChange(false);
-						s.ctx.setUncontrolledShow(false);
-					}
-					// Reset unconditionally, closing or not: a close is about to hand
-					// off to the CSS leave-out animation on the OUTER node, which must
-					// start from the natural resting transform, not wherever the drag
-					// left it; snapping back is exactly what "didn't pass the
-					// threshold" means anyway.
-					s.dragOffset = 0;
-					s.innerEl.setStyleProperty("transform", sheetDragTransform(s.ctx.resolvedSide, 0));
-				},
-			},
-		});
-		s.gesture = gesture;
-		s.controls = makeGestureControls(inner._handle, gesture.id);
+		// arenaPolicy {mode:"claim"}: claims the gesture unconditionally on
+		// touch-down (see this file's own header on why, unlike SwipeAction).
+		s.gesture = registerGesture(vnode.dom.firstChild, "native", { mode: "claim" });
 	},
 
 	onremove(vnode) {
@@ -337,7 +309,48 @@ export const SheetContent = {
 		const presenceClassName = sheetClasses(api.status, className, transition, ctx.resolvedSide);
 		const positionStyle = sheetPositionStyle(ctx.resolvedSide);
 
-		const innerContent = m("view", { class: innerClassName, style: innerStyle }, vnode.children);
+		const innerContent = m(
+			"view",
+			{
+				id: s.refId,
+				class: innerClassName,
+				style: innerStyle,
+				// Forwarded from mithril-lynx's own arena-policy handling
+				// (registerGesture() above) as plain events — see
+				// docs/native-papi/papi-05-native-gestures.md. e.redraw = false
+				// on each: the drag writes its own transform imperatively
+				// (manual 2's pattern), so a diff per move would be wasted —
+				// ongestureup's own state changes, when they happen, already
+				// trigger their own redraw() (setUncontrolledShow does).
+				ongesturedown: (e) => {
+					s.startX = e.clientX;
+					s.startY = e.clientY;
+					e.redraw = false;
+				},
+				ongesturemove: (e) => {
+					const dx = e.clientX - s.startX;
+					const dy = e.clientY - s.startY;
+					s.dragOffset = Math.max(0, closingDelta(ctx.resolvedSide, dx, dy));
+					s.innerEl.setStyleProperty("transform", sheetDragTransform(ctx.resolvedSide, s.dragOffset));
+					e.redraw = false;
+				},
+				ongestureup: (e) => {
+					if (s.dragOffset >= ctx.dismissThreshold) {
+						if (typeof ctx.onShowChange === "function") ctx.onShowChange(false);
+						ctx.setUncontrolledShow(false);
+					}
+					// Reset unconditionally, closing or not: a close is about to hand
+					// off to the CSS leave-out animation on the OUTER node, which must
+					// start from the natural resting transform, not wherever the drag
+					// left it; snapping back is exactly what "didn't pass the
+					// threshold" means anyway.
+					s.dragOffset = 0;
+					s.innerEl.setStyleProperty("transform", sheetDragTransform(ctx.resolvedSide, 0));
+					e.redraw = false;
+				},
+			},
+			vnode.children,
+		);
 
 		return m(
 			"view",
@@ -398,12 +411,12 @@ export const SheetView = {
 					onOpen: () => {
 						s.mountedCount += 1;
 						if (s.mountedCount === children.length && typeof ctx.onOpen === "function") ctx.onOpen();
-						shim.redraw();
+						redraw();
 					},
 					onClose: () => {
 						s.mountedCount -= 1;
 						if (s.mountedCount === 0 && typeof ctx.onClose === "function") ctx.onClose();
-						shim.redraw();
+						redraw();
 					},
 				},
 				child,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
-import m from "mithril";
-import shim from "mithril-lynx-v1";
+import m from "mithril-runtime";
 import { DrawerBackdrop, DrawerClose, DrawerContent, DrawerRoot, DrawerTrigger, DrawerView } from "../src/drawer/drawer.js";
+import { mount, fire, type Mounted, type TestNode } from "./harness.js";
 
 // drawer.js is a thin wrapper over sheet.js's own components (see its own
 // header) — sheet.test.ts already covers the shared engine (presence
@@ -15,33 +15,16 @@ import { DrawerBackdrop, DrawerClose, DrawerContent, DrawerRoot, DrawerTrigger, 
 // each becoming its own Presence) mirrors sheet.test.ts's own — DrawerView
 // IS SheetView, unwrapped, so it has the exact same nesting contract.
 
-const shimModule = ((shim as any).default ?? shim) as {
-  renderToPage(pageElement: unknown, vnode: unknown): unknown;
-  redraw(): void;
-};
-
-function mount(view: () => unknown): any {
-  lynxTestingEnv.switchToMainThread();
-  const page = __CreatePage("0", 0);
-  return shimModule.renderToPage(page, m({ view })) as any;
-}
-
-const papiCalls = (): { fn: string; args: unknown[] }[] => (globalThis as any).__papiCalls;
-const classOf = (node: any): string =>
-  (papiCalls().filter((c) => c.fn === "__SetClasses" && c.args[0] === node._handle).at(-1)?.args[1] as string) ?? "";
-
-function fire(node: any, type: string) {
-  node._listeners[type]?.wrapped({ type });
-}
-
-function isMarker(node: any): boolean {
-  return node != null && node._style?.display === "none";
+function isMarker(app: Mounted, node: TestNode | null): boolean {
+	if (node == null) return false;
+	const handle = app.applier.getHandle(node._id) as any;
+	return handle?.style?.display === "none";
 }
 
 /** The real next sibling, skipping exactly one trailing marker if present — same convention as sheet.test.ts's own next(). */
-function next(node: any): any {
-  const n = node.nextSibling;
-  return isMarker(n) ? n.nextSibling : n;
+function next(app: Mounted, node: TestNode): TestNode | null {
+	const n = node.nextSibling;
+	return n != null && isMarker(app, n) ? n.nextSibling : n;
 }
 
 const frames = (n: number) => new Promise((r) => setTimeout(r, 16 * n + 40));
@@ -49,88 +32,83 @@ const ENTER_SETTLE = 44; // matches sheet.test.ts's own constant for the same pr
 const LEAVE_SETTLE = 44;
 
 function messageOfThrow(fn: () => unknown): string {
-  try {
-    fn();
-  } catch (e) {
-    return String(e instanceof Error ? e.message : e);
-  }
-  return "<did not throw>";
+	try {
+		fn();
+	} catch (e) {
+		return String(e instanceof Error ? e.message : e);
+	}
+	return "<did not throw>";
 }
 
 describe("drawer.js", () => {
-  it("defaults side to left (not sheet.js's own 'bottom' default)", async () => {
-    const root = mount(() => m(DrawerRoot, { defaultShow: true }, m(DrawerView, {}, m(DrawerContent, { className: "content" }, m("text", {}, "hola")))));
-    await frames(ENTER_SETTLE);
+	it("defaults side to left (not sheet.js's own 'bottom' default)", async () => {
+		const app = mount(() => m(DrawerRoot, { defaultShow: true }, m(DrawerView, {}, m(DrawerContent, { className: "content" }, m("text", {}, "hola")))));
+		await frames(ENTER_SETTLE);
 
-    const content = root.firstChild.firstChild;
-    expect(classOf(content)).toContain("ui-sheet-side-left");
-  });
+		// app.root is DrawerView (= SheetView, its own real wrapper) — see
+		// sheet.test.ts's own navigation note for why this isn't transparent.
+		const content = app.root.firstChild!;
+		expect(content.className).toContain("ui-sheet-side-left");
+	});
 
-  it("side is overridable", async () => {
-    const root = mount(() =>
-      m(DrawerRoot, { defaultShow: true, side: "right" }, m(DrawerView, {}, m(DrawerContent, { className: "content" }, m("text", {}, "hola")))),
-    );
-    await frames(ENTER_SETTLE);
+	it("side is overridable", async () => {
+		const app = mount(() =>
+			m(DrawerRoot, { defaultShow: true, side: "right" }, m(DrawerView, {}, m(DrawerContent, { className: "content" }, m("text", {}, "hola")))),
+		);
+		await frames(ENTER_SETTLE);
 
-    const content = root.firstChild.firstChild;
-    expect(classOf(content)).toContain("ui-sheet-side-right");
-    expect(classOf(content)).not.toContain("ui-sheet-side-left");
-  });
+		const content = app.root.firstChild!;
+		expect(content.className).toContain("ui-sheet-side-right");
+		expect(content.className).not.toContain("ui-sheet-side-left");
+	});
 
-  it("DrawerContent/DrawerBackdrop add their own additive class alongside sheet.js's own state classes", async () => {
-    const root = mount(() =>
-      m(
-        DrawerRoot,
-        { defaultShow: true },
-        m(DrawerView, {}, [
-          m(DrawerBackdrop, { className: "my-backdrop" }),
-          m(DrawerContent, { className: "my-content" }, m("text", {}, "hola")),
-        ]),
-      ),
-    );
-    await frames(ENTER_SETTLE);
+	it("DrawerContent/DrawerBackdrop add their own additive class alongside sheet.js's own state classes", async () => {
+		const app = mount(() =>
+			m(
+				DrawerRoot,
+				{ defaultShow: true },
+				m(DrawerView, {}, [m(DrawerBackdrop, { className: "my-backdrop" }), m(DrawerContent, { className: "my-content" }, m("text", {}, "hola"))]),
+			),
+		);
+		await frames(ENTER_SETTLE);
 
-    const drawerView = root.firstChild;
-    const backdrop = drawerView.firstChild;
-    const content = next(backdrop);
+		const drawerView = app.root;
+		const backdrop = drawerView.firstChild!;
+		const content = next(app, backdrop)!;
 
-    expect(classOf(backdrop)).toContain("my-backdrop");
-    expect(classOf(backdrop)).toContain("ui-drawer-backdrop");
-    expect(classOf(content)).toContain("my-content");
-    expect(classOf(content)).toContain("ui-drawer-content");
-    expect(classOf(content)).toContain("ui-sheet-side-left");
-  });
+		expect(backdrop.className).toContain("my-backdrop");
+		expect(backdrop.className).toContain("ui-drawer-backdrop");
+		expect(content.className).toContain("my-content");
+		expect(content.className).toContain("ui-drawer-content");
+		expect(content.className).toContain("ui-sheet-side-left");
+	});
 
-  it("uncontrolled: DrawerTrigger opens it, DrawerClose closes it", async () => {
-    const root = mount(() =>
-      m(DrawerRoot, {}, [
-        m(DrawerTrigger, { className: "trigger" }, m("text", {}, "Abrir")),
-        m(DrawerView, {}, m(DrawerContent, { className: "content" }, m(DrawerClose, { className: "close" }, m("text", {}, "Cerrar")))),
-      ]),
-    );
+	it("uncontrolled: DrawerTrigger opens it, DrawerClose closes it", async () => {
+		const app = mount(() =>
+			m(DrawerRoot, {}, [
+				m(DrawerTrigger, { className: "trigger" }, m("text", {}, "Abrir")),
+				m(DrawerView, {}, m(DrawerContent, { className: "content" }, m(DrawerClose, { className: "close" }, m("text", {}, "Cerrar")))),
+			]),
+		);
 
-    const trigger = root.firstChild;
-    fire(trigger, "tap");
-    shimModule.redraw();
-    await frames(ENTER_SETTLE);
+		const trigger = app.root;
+		fire(trigger, "tap");
+		await frames(ENTER_SETTLE);
 
-    const drawerView = trigger.nextSibling;
-    expect(isMarker(drawerView)).toBe(false);
+		const drawerView = trigger.nextSibling!;
+		expect(isMarker(app, drawerView)).toBe(false);
 
-    // content.firstChild is DrawerContent's own inner wrapping layer (the
-    // node the drag gesture is registered on) — one level in from content.
-    const content = drawerView.firstChild;
-    const closeButton = content.firstChild.firstChild;
-    fire(closeButton, "tap");
-    shimModule.redraw();
-    await frames(LEAVE_SETTLE);
+		// content.firstChild is DrawerContent's own inner wrapping layer (the
+		// node the drag gesture is registered on) — one level in from content.
+		const content = drawerView.firstChild!;
+		const closeButton = content.firstChild!.firstChild!;
+		fire(closeButton, "tap");
+		await frames(LEAVE_SETTLE);
 
-    expect(isMarker(trigger.nextSibling)).toBe(true);
-  });
+		expect(isMarker(app, trigger.nextSibling)).toBe(true);
+	});
 
-  it("DrawerTrigger outside a DrawerRoot fails loudly, same as sheet.js's own error", () => {
-    expect(messageOfThrow(() => mount(() => m(DrawerTrigger, {}, m("text", {}, "x"))))).toMatch(
-      /must be used inside a <SheetRoot>/,
-    );
-  });
+	it("DrawerTrigger outside a DrawerRoot fails loudly, same as sheet.js's own error", () => {
+		expect(messageOfThrow(() => mount(() => m(DrawerTrigger, {}, m("text", {}, "x"))))).toMatch(/must be used inside a <SheetRoot>/);
+	});
 });

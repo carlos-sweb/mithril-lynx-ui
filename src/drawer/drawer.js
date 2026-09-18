@@ -51,7 +51,7 @@
 // caller-supplied component-name pair) if a THIRD wrapper family over
 // sheet.js's scope ever shows up.
 
-import m from "mithril";
+import m from "mithril-runtime";
 import { SheetBackdrop, SheetClose, SheetContent, SheetRoot, SheetTrigger, SheetView } from "../sheet/sheet.js";
 import { cx } from "../internal/cx.js";
 
