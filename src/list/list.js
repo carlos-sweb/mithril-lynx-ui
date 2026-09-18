@@ -40,8 +40,8 @@
 // native's entire scroll position and cell pool for no reason.
 
 import m from "mithril";
-import { createList } from "mithril-lynx/list";
-import { wrapElement } from "mithril-lynx/element";
+import { createList } from "mithril-lynx-v1/list";
+import { wrapElement } from "mithril-lynx-v1/element";
 
 export const List = {
 	oninit(vnode) {

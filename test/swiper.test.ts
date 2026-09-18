@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
-import shim from "mithril-lynx";
+import shim from "mithril-lynx-v1";
 import { Swiper } from "../src/swiper/swiper.js";
 
 // swiper.js registers a real native gesture (mithril-lynx/gesture's

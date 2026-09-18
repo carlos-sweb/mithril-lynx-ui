@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
-import shim from "mithril-lynx";
+import shim from "mithril-lynx-v1";
 import { FeedList } from "../src/feed-list/feed-list.js";
 
 // FeedList here is List (already its own thoroughly-tested wrapper around

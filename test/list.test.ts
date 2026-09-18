@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
-import shim from "mithril-lynx";
+import shim from "mithril-lynx-v1";
 import { List } from "../src/list/list.js";
 
 // createList() itself (mithril-lynx core) already has its own thorough

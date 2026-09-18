@@ -1,7 +1,7 @@
 // Ambient declaration for the ESM button.js (the file itself is not
 // type-checked; this describes its runtime export shape for TS consumers).
 
-import type { Component } from "mithril";
+import type { Component } from "mithril-runtime";
 
 /** State handed to a scoped-slot child (a function passed as the single child). */
 export interface ButtonRenderProps {

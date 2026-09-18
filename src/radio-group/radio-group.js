@@ -13,10 +13,10 @@
 // to reach Radios ambiently (they're rarely direct children; usually each
 // sits inside the app's own row/label markup).
 
-import m from "mithril";
+import m from "mithril-runtime";
 import { Button } from "../button/button.js";
 import { cx } from "../internal/cx.js";
-import { renderChildren } from "../internal/press.js";
+import { renderChildren } from "../internal/press-v2.js";
 import { createScope } from "../scope/scope.js";
 
 const groupScope = createScope();

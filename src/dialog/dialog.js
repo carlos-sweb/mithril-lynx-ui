@@ -34,13 +34,13 @@
 // supplied, so DialogView's own per-child callback below needs no redraw
 // call of its own — just update the array and derive the combined state.
 
-import m from "mithril";
-import shim from "mithril-lynx";
+import m from "mithril-runtime";
+import { redraw } from "mithril-lynx/mount-redraw";
 import { Button } from "../button/button.js";
 import { cx } from "../internal/cx.js";
-import { renderChildren } from "../internal/press.js";
+import { renderChildren } from "../internal/press-v2.js";
 import { nativeBool } from "../internal/native.js";
-import { PresenceState, Presence, resolveAnimationStatus, usePresence } from "../presence/presence.js";
+import { PresenceState, Presence, resolveAnimationStatus, usePresence } from "../presence/presence-v2.js";
 import { createScope } from "../scope/scope.js";
 
 const dialogScope = createScope();
@@ -104,7 +104,7 @@ export const DialogRoot = {
 			groupState: actualShow ? PresenceState.Entering : PresenceState.Left,
 			setUncontrolledShow: (next) => {
 				s.uncontrolledShow = next;
-				shim.redraw();
+				redraw();
 			},
 			onOpen: vnode.attrs.onOpen,
 			onClose: vnode.attrs.onClose,
@@ -268,7 +268,7 @@ export const DialogView = {
 						ctx.groupState = combineGroupStates(s.stateGroup);
 					},
 					// Unlike setPresenceState above, presence.js's own onEntered/onLeft
-					// never call shim.redraw() after invoking onOpen/onClose (only
+					// never call redraw() after invoking onOpen/onClose (only
 					// setState's callers do, for the state transition itself) — so
 					// without a redraw here, mountedCount reaching 0 would update
 					// silently and DialogView would never get another view() call to
@@ -278,12 +278,12 @@ export const DialogView = {
 					onOpen: () => {
 						s.mountedCount += 1;
 						if (s.mountedCount === children.length && typeof ctx.onOpen === "function") ctx.onOpen();
-						shim.redraw();
+						redraw();
 					},
 					onClose: () => {
 						s.mountedCount -= 1;
 						if (s.mountedCount === 0 && typeof ctx.onClose === "function") ctx.onClose();
-						shim.redraw();
+						redraw();
 					},
 				},
 				child,

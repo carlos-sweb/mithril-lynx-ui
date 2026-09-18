@@ -87,8 +87,8 @@
 //      re-checking that exact condition made every further retry bail out
 //      immediately, silently, forever. Now only gates the FIRST attempt.
 import m from "mithril";
-import shim from "mithril-lynx";
-import { wrapElement } from "mithril-lynx/element";
+import shim from "mithril-lynx-v1";
+import { wrapElement } from "mithril-lynx-v1/element";
 import { Button } from "../button/button.js";
 import { cx } from "../internal/cx.js";
 import { requestFrame } from "../internal/frames.js";

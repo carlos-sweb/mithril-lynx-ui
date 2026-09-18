@@ -40,7 +40,7 @@
 // a provider. Add real wiring here if/when a KeyboardAware root ships.
 
 import m from "mithril";
-import shim from "mithril-lynx";
+import shim from "mithril-lynx-v1";
 import { cx } from "../internal/cx.js";
 import { delayFrames } from "../internal/frames.js";
 import { nativeBool } from "../internal/native.js";

@@ -1,7 +1,7 @@
 // Ambient declaration for the ESM scope.js (the file itself is not
 // type-checked; this describes its runtime export shape for TS consumers).
 
-import type { Component } from "mithril";
+import type { Component } from "mithril-runtime";
 
 export interface Scope<T> {
   /** Renders its children, making `value` available to any descendant's useScope() call. */

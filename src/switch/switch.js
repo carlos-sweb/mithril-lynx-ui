@@ -14,9 +14,9 @@
 // work here: a function passed as Switch's single child is called with
 // {checked, active, disabled}, same as lynx-ui's children-as-function.
 
-import m from "mithril";
+import m from "mithril-runtime";
 import { cx } from "../internal/cx.js";
-import { isActive, pressAttrs, renderChildren } from "../internal/press.js";
+import { isActive, pressAttrs, renderChildren } from "../internal/press-v2.js";
 import { createScope } from "../scope/scope.js";
 
 const switchScope = createScope();

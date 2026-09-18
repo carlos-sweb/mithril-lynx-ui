@@ -1,8 +1,8 @@
 // Ambient declaration for the ESM dialog.js (the file itself is not
 // type-checked; this describes its runtime export shape for TS consumers).
 
-import type { Component } from "mithril";
-import type { PresenceStatus } from "../presence/presence.js";
+import type { Component } from "mithril-runtime";
+import type { PresenceStatus } from "../presence/presence-v2.js";
 
 export interface DialogRootAttrs {
   /** Controlled mode when provided — defaultShow has no effect and you own show/close yourself. */

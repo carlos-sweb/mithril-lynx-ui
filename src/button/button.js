@@ -18,9 +18,9 @@
 // a parent handing state straight to its own children (see ./scope.js's
 // header for when it IS needed).
 
-import m from "mithril";
+import m from "mithril-runtime";
 import { cx } from "../internal/cx.js";
-import { isActive, pressAttrs, renderChildren } from "../internal/press.js";
+import { isActive, pressAttrs, renderChildren } from "../internal/press-v2.js";
 import { createScope } from "../scope/scope.js";
 
 // The equivalent of lynx-ui's exported ButtonContext: Checkbox and Radio

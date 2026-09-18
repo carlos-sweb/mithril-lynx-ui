@@ -46,7 +46,7 @@
 // alignment) because Grid genuinely has both concepts and short names
 // would be ambiguous about which one a prop means.
 
-import m from "mithril";
+import m from "mithril-runtime";
 import { cx } from "../internal/cx.js";
 
 function px(value) {

@@ -48,7 +48,7 @@
 // `flatten={false}` on the original's placeholder (a compositing-layer
 // hint) is dropped — a v1 simplification, not a correctness requirement.
 
-import m from "mithril";
+import m from "mithril-runtime";
 
 // A zero-size placeholder can never register as visible, so the exposure
 // system would never fire and the real content would never load — this is

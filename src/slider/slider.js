@@ -35,8 +35,8 @@
 // device, avoided here from the start instead of found the same way twice.
 
 import m from "mithril";
-import shim from "mithril-lynx";
-import { wrapElement } from "mithril-lynx/element";
+import shim from "mithril-lynx-v1";
+import { wrapElement } from "mithril-lynx-v1/element";
 import { cx } from "../internal/cx.js";
 import {
 	areSliderValuesEqual,

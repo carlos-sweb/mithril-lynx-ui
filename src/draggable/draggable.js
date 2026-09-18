@@ -32,7 +32,7 @@
 // write does, and a redraw becomes a no-op for it instead of a reset.
 
 import m from "mithril";
-import { wrapElement } from "mithril-lynx/element";
+import { wrapElement } from "mithril-lynx-v1/element";
 import { cx } from "../internal/cx.js";
 
 const MIN_INT = Number.MIN_SAFE_INTEGER;

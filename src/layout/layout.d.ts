@@ -1,7 +1,7 @@
 // Ambient declaration for the ESM layout.js (the file itself is not
 // type-checked; this describes its runtime export shape for TS consumers).
 
-import type { Component } from "mithril";
+import type { Component } from "mithril-runtime";
 
 type StyleAttrs = Record<string, string | number>;
 type Align = "start" | "end" | "center" | "flex-start" | "flex-end" | "stretch" | "baseline";

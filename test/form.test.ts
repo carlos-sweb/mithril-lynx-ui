@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
-import shim from "mithril-lynx";
+import shim from "mithril-lynx-v1";
 import { FormField, FormRoot, FormSubmitButton, useForm } from "../src/form/form.js";
 import { Radio } from "../src/radio-group/radio-group.js";
 

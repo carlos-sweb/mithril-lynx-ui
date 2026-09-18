@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
-import shim from "mithril-lynx";
+import shim from "mithril-lynx-v1";
 import { Draggable } from "../src/draggable/draggable.js";
 
 // The drag position is written straight to the node rather than through a

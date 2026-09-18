@@ -134,3 +134,91 @@ no depende de ningún primitivo de v1 en absoluto — es solo una coerción de
 tipos, portable sin cambios. La reorganización de carpetas (commit
 `f5b838a`) tampoco necesita revertirse ni rehacerse: la estructura por
 componente sirve igual de bien para código v1 o v2.
+
+## 6. Ejecución de los 9 — hallazgos reales (2026-09-18)
+
+Migrados y verdes: `scope`, `button`, `switch`, `checkbox`, `radio-group`,
+`layout`, `dialog`, `presence`, `lazy-component` (ver commits de esta
+sesión en ambos repos). Un harness de test nuevo
+(`test/v2-harness.ts`) monta cada componente contra el `renderApp()` +
+`createPatchApplier` REALES de v2 (no un mock) — mismo nivel de rigor que
+v1 siempre exigió en este proyecto.
+
+**Bugs reales de `mithril-lynx` v2 encontrados y arreglados en el camino**
+(ninguno visible antes porque el propio test suite de v2 nunca ejercitó
+estos paths — ver commits en `mithril-lynx-v2`, versión subió de 2.0.2 a
+2.3.0):
+1. `LynxText` nunca inicializaba `_text` — `nodeValue` leía `undefined`
+   hasta la primera actualización (no afectaba el render real, solo la
+   introspección externa).
+2. `LynxFragment`/`LynxContainerNode` no exponían `childNodes` —
+   CUALQUIER componente con más de un hijo top-level (un patrón
+   extremadamente común) crasheaba en `render.js`'s `createFragment`.
+3. **El más grande**: `updateStyle()` de Mithril limpia el style ANTES de
+   aplicar un objeto, incluso en un elemento recién creado que nunca tuvo
+   estilos — y v2 tenía eso marcado como "F3 TODO, no implementado" sin
+   condición. Cualquier componente con `style: {...}` (no un string, no
+   `undefined`) crasheaba en su primer render. Arreglado rastreando si
+   alguna vez se seteó una propiedad real (`_styleEverSet`) antes de
+   emitir el clear-all.
+4. Se agregaron 3 exports públicos nuevos a v2, necesarios para que un
+   paquete separado pueda testear de verdad contra él: `mithril-lynx/
+   mount-redraw` (redraw async fuera de un event handler — lo necesitan
+   `presence.js`/`dialog.js`), `mithril-lynx/testing` (polyfill +
+   `createPatchApplier`, mismo motivo que v1 ya tenía `mithril-lynx/
+   testing`), y `getHandle(id)` en el applier (para leer estilos/clases
+   aplicados vía el `__papiCalls` global que instala el polyfill de v1).
+
+**Diferencia real de convención v1 vs v2, no un bug**: v1's `LynxStyleProxy`
+CAMELIZA toda key de estilo antes de llegar al PAPI nativo (acepta
+`"font-size"` o `fontSize`, unifica a camelCase). v2's `fake-dom.js` hace
+lo CONTRARIO — normaliza a dash-case. Un componente escrito con estilos en
+dash-case literal (como `layout.js` casi en su totalidad) funciona igual en
+ambos; un test/consumidor que lea el estilo aplicado de vuelta tiene que
+saber cuál convención está mirando. No se tocó v2 para "arreglar" esto —
+dash-case es lo que su propio diseño ya documentaba como intencional.
+
+**`internal/press.js` se bifurcó**: `press-v2.js` es la versión sin
+`shim.redraw()` explícito (v2 auto-redibuja después de cualquier evento;
+v1 no, por eso v1 SÍ necesita el redraw manual ahí). `press.js` (v1) sigue
+sirviendo a los componentes todavía no migrados (`sheet.js` por ahora).
+
+**El error real de esta ejecución — dependencia INVERSA, no calculada en
+el plan original**: el análisis de "9 sin dependencia" solo miró qué
+importa CADA componente candidato (dependencia hacia adelante). Nunca
+miró la dirección contraria: ¿qué componentes TODAVÍA EN v1 dependen de
+uno de los 9? `sheet.js`/`popover.js` (ambos bloqueados, sin migrar)
+importan `presence.js` y `button.js` — dos de los "9 libres". Migrar
+`presence.js` completo rompió `sheet.test.ts`/`popover.test.ts` (15 tests)
+en silencio: `presence.js` ahora llama `mithril-lynx/mount-redraw`'s
+`redraw()`, que es un no-op total cuando el árbol lo monta el shim de v1
+(nunca hay un `renderApp()` de v2 registrado) — la animación nunca
+avanzaba, no un error, un freeze silencioso.
+
+`button.js`/`scope.js` sí resultaron seguros de compartir tal cual sin
+bifurcar (confirmado empíricamente: `form.test.ts`/`input-otp.test.ts`,
+que consumen `button.js`/`checkbox.js`/`switch.js`/`radio-group.js`/
+`scope.js` migrados desde código todavía-v1, siguen pasando) — ninguno
+de los dos llama ninguna función de redraw explícita, así que mezclar
+vnodes de `mithril` real con componentes cuyo `view()` interno usa
+`mithril-runtime` no importa: el diff de Mithril solo mira la FORMA del
+vnode (`tag`/`attrs`/`children`), no de qué módulo `m()` salió. El
+problema es específicamente cualquier función que LLAME a un mecanismo
+de redraw hardcodeado a una versión — no la mezcla de módulos en sí.
+
+**Arreglado bifurcando SOLO `presence.js`** (no `button.js`/`scope.js`,
+que no lo necesitan): `presence-v2.js` es la copia real usada por
+`dialog.js` (el único consumidor migrado), con `mithril-runtime` +
+`mount-redraw` + `press-v2.js`. `presence.js` volvió a ser exactamente
+el original v1 (real `mithril` + `shim.redraw()` vía el alias
+`mithril-lynx-v1`), sigue sirviendo a `sheet.js`/`popover.js`. Suite
+completa reverificada: **217/217, en los 24 archivos, v1 y v2 mezclados
+correctamente**.
+
+**Lección para cualquier migración incremental futura de un módulo
+compartido**: antes de migrar un módulo consumido por MÁS de un
+llamador, listar TODOS sus consumidores (no solo los que ya se planea
+migrar) y verificar si el módulo llama algo versionado (una función de
+redraw, un evento, un mecanismo de hilo) — si no llama nada así, es
+seguro compartirlo tal cual; si sí, bifurcar antes de migrar, no
+después de que un test lo delate.

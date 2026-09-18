@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
-import shim from "mithril-lynx";
+import shim from "mithril-lynx-v1";
 import { Input, TextArea } from "../src/input/input.js";
 
 // What's worth asserting here is the native contract: the attribute names and

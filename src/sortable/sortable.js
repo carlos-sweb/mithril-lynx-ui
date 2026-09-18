@@ -87,7 +87,7 @@
 // the shim's generic on*-maps-to-addEventListener contract.
 
 import m from "mithril";
-import shim from "mithril-lynx";
+import shim from "mithril-lynx-v1";
 import { Draggable } from "../draggable/draggable.js";
 import { cx } from "../internal/cx.js";
 import { createSwapTracker, resetSwapTracker, sortKeyArray, updateSwapTracking } from "./sortable-utils.js";

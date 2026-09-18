@@ -64,9 +64,9 @@
 // for real the next time a THIRD caller (Popover) needs it too.
 
 import m from "mithril";
-import shim from "mithril-lynx";
-import { createGesture } from "mithril-lynx/gesture";
-import { wrapElement } from "mithril-lynx/element";
+import shim from "mithril-lynx-v1";
+import { createGesture } from "mithril-lynx-v1/gesture";
+import { wrapElement } from "mithril-lynx-v1/element";
 import { Button } from "../button/button.js";
 import { cx } from "../internal/cx.js";
 import { makeGestureControls } from "../internal/gesture-controls.js";

@@ -1,7 +1,7 @@
 // Ambient declaration for the ESM checkbox.js (the file itself is not
 // type-checked; this describes its runtime export shape for TS consumers).
 
-import type { Component } from "mithril";
+import type { Component } from "mithril-runtime";
 
 /** State handed to a scoped-slot child. */
 export interface CheckboxRenderProps {

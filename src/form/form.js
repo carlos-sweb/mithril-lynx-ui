@@ -46,7 +46,7 @@
 // same as every other component's onChange convention in this project.
 
 import m from "mithril";
-import shim from "mithril-lynx";
+import shim from "mithril-lynx-v1";
 import { Button } from "../button/button.js";
 import { Checkbox } from "../checkbox/checkbox.js";
 import { Input, TextArea } from "../input/input.js";

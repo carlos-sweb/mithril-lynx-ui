@@ -47,7 +47,7 @@
 // read useScope() in view() and stash the result on vnode.state, then read
 // vnode.state in oncreate instead of asking the scope a second time.
 
-import m from "mithril";
+import m from "mithril-runtime";
 
 export function createScope() {
 	const stack = [];

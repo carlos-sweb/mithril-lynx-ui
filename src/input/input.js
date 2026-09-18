@@ -45,7 +45,7 @@
 // editor's own state.
 
 import m from "mithril";
-import { wrapElement } from "mithril-lynx/element";
+import { wrapElement } from "mithril-lynx-v1/element";
 import { cx } from "../internal/cx.js";
 import { nativeBool } from "../internal/native.js";
 

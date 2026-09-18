@@ -12,10 +12,10 @@
 // leaves the indeterminate state by being decided, never by flipping back
 // into it.
 
-import m from "mithril";
+import m from "mithril-runtime";
 import { Button, useButtonState } from "../button/button.js";
 import { cx } from "../internal/cx.js";
-import { renderChildren } from "../internal/press.js";
+import { renderChildren } from "../internal/press-v2.js";
 import { createScope } from "../scope/scope.js";
 
 const checkboxScope = createScope();

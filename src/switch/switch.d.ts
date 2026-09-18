@@ -1,7 +1,7 @@
 // Ambient declaration for the ESM switch.js (the file itself is not
 // type-checked; this describes its runtime export shape for TS consumers).
 
-import type { Component } from "mithril";
+import type { Component } from "mithril-runtime";
 
 /** State handed to a scoped-slot child, and read by SwitchTrack/SwitchThumb. */
 export interface SwitchRenderProps {

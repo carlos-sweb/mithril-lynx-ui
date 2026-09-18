@@ -90,9 +90,9 @@
 // bounds FIRST, before re-litigating the gesture-arena mechanism itself.
 
 import m from "mithril";
-import shim from "mithril-lynx";
-import { wrapElement } from "mithril-lynx/element";
-import { createGesture } from "mithril-lynx/gesture";
+import shim from "mithril-lynx-v1";
+import { wrapElement } from "mithril-lynx-v1/element";
+import { createGesture } from "mithril-lynx-v1/gesture";
 import { cx } from "../internal/cx.js";
 import { makeGestureControls } from "../internal/gesture-controls.js";
 import { nativeBool } from "../internal/native.js";

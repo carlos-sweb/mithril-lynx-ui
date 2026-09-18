@@ -1,7 +1,7 @@
 // Ambient declaration for the ESM radio-group.js (the file itself is not
 // type-checked; this describes its runtime export shape for TS consumers).
 
-import type { Component } from "mithril";
+import type { Component } from "mithril-runtime";
 
 /** State handed to a RadioGroup scoped-slot child. */
 export interface RadioGroupRenderProps {

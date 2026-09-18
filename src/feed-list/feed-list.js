@@ -40,8 +40,8 @@
 // doesn't attempt to work around a core list-diffing limitation.
 
 import m from "mithril";
-import shim from "mithril-lynx";
-import { wrapElement } from "mithril-lynx/element";
+import shim from "mithril-lynx-v1";
+import { wrapElement } from "mithril-lynx-v1/element";
 import { nativeBool } from "../internal/native.js";
 import { List } from "../list/list.js";
 
