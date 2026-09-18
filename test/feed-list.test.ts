@@ -1,256 +1,150 @@
 import { describe, expect, it } from "@rstest/core";
-import m from "mithril";
-import shim from "mithril-lynx-v1";
+import m from "mithril-runtime";
+import { registerListRenderer } from "mithril-lynx/list-support";
 import { FeedList } from "../src/feed-list/feed-list.js";
+import { mount, fire, type Mounted, type TestNode } from "./harness.js";
 
 // FeedList here is List (already its own thoroughly-tested wrapper around
-// core's createList()) plus two additions: a native <refresh>/<refresh-header>
-// wrapper, and a load-more footer sentinel item. These tests focus on what
-// THIS file adds, driving native events the same way every other native
-// event in this project is driven: fire it directly on the node.
+// mithril-lynx's native list support) plus a native <refresh>/<refresh-header>
+// wrapper. These tests focus on what THIS file adds, driving native events
+// the same way every other native event in this project is driven: fire it
+// directly on the node. The load-more footer sentinel this file used to
+// ship is gone — see this file's own header for why (it depended on an
+// event reaching back from inside list cell content, which list.js's own
+// "known gap" doesn't support since migrating to mithril-lynx's current
+// list primitive).
 
-const shimModule = ((shim as any).default ?? shim) as {
-  renderToPage(pageElement: unknown, vnode: unknown): unknown;
-  redraw(): void;
-};
-
-function mount(view: () => unknown): any {
-  lynxTestingEnv.switchToMainThread();
-  const page = __CreatePage("0", 0);
-  return shimModule.renderToPage(page, m({ view })) as any;
+let nextKey = 1;
+function uniqueKey() {
+	return `feed-list-test-${nextKey++}`;
 }
 
-function fire(node: any, type: string, detail: Record<string, unknown> = {}) {
-  node._listeners[type]?.wrapped({ type, detail });
+function papiCalls(): { fn: string; args: unknown[] }[] {
+	return (globalThis as any).__papiCalls;
 }
 
-const papiCalls = (): { fn: string; args: unknown[] }[] => (globalThis as any).__papiCalls;
-const callsOf = (fn: string) => papiCalls().filter((c) => c.fn === fn);
-const lastCallOf = (fn: string) => callsOf(fn).at(-1);
-const attrOf = (node: any, name: string): unknown =>
-  papiCalls()
-    .filter((c) => c.fn === "__SetAttribute" && c.args[0] === node._handle && c.args[1] === name)
-    .at(-1)?.args[2];
+function attrOf(app: Mounted, node: TestNode, name: string): unknown {
+	const handle = app.applier.getHandle(node._id);
+	return papiCalls()
+		.filter((c) => c.fn === "__SetAttribute" && c.args[0] === handle && c.args[1] === name)
+		.at(-1)?.args[2];
+}
 
-function requestCell(list: any, index: number, opId = 1) {
-  const listId = __GetElementUniqueID(list._handle);
-  return list._handle.componentAtIndex(list._handle, listId, index, opId);
+function requestCell(app: Mounted, list: TestNode, index: number, opId = 1) {
+	const handle = app.applier.getHandle(list._id) as any;
+	const listId = __GetElementUniqueID(handle);
+	return handle.componentAtIndex(handle, listId, index, opId);
 }
 
 describe("feed-list.js", () => {
-  it("with no refreshOptions and no onLoadMore, it's just List — no <refresh> wrapper, no footer item", () => {
-    const items = ["a", "b"];
-    const root = mount(() => m(FeedList, { items, renderItem: (item: string) => m("text", {}, item) }));
+	it("with no refreshOptions, it's just List — no <refresh> wrapper", () => {
+		const key = uniqueKey();
+		registerListRenderer(key, (item: string) => m("text", {}, item));
+		const app = mount(() => m(FeedList, { items: ["a", "b"], rendererKey: key }));
 
-    expect(root.firstChild._tag).not.toBe("refresh");
-    const list = root.firstChild.firstChild;
-    requestCell(list, 0);
-    requestCell(list, 1);
-    expect(callsOf("__CreateList")).toHaveLength(1);
-    // No synthetic footer index was added: native's own itemCount is still 2,
-    // so asking for a 3rd cell is genuinely out of range.
-    expect(() => requestCell(list, 2)).toThrow(/out of range/);
-  });
+		expect(app.root.tag).not.toBe("refresh");
+		const list = app.root.firstChild!;
+		requestCell(app, list, 0);
+		requestCell(app, list, 1);
+		expect(papiCalls().filter((c) => c.fn === "__CreateList")).toHaveLength(1);
+		expect(() => requestCell(app, list, 2)).toThrow(/out of range/);
+	});
 
-  it("wraps List in a native <refresh>/<refresh-header> when refreshOptions is truthy", () => {
-    const root = mount(() =>
-      m(FeedList, { items: ["a"], renderItem: (item: string) => m("text", {}, item), refreshOptions: true, listId: "feed1" }),
-    );
+	it("wraps List in a native <refresh>/<refresh-header> when refreshOptions is truthy", () => {
+		const key = uniqueKey();
+		registerListRenderer(key, (item: string) => m("text", {}, item));
+		const app = mount(() => m(FeedList, { items: ["a"], rendererKey: key, refreshOptions: true, listId: "feed1" }));
 
-    const refreshView = root.firstChild.firstChild;
-    expect(refreshView._tag).toBe("refresh");
-    expect(attrOf(refreshView, "enable-refresh")).toBe("true");
-    expect(refreshView.firstChild._tag).toBe("refresh-header");
-    expect(refreshView.firstChild.nextSibling.firstChild._tag).not.toBeUndefined(); // the real native list
-  });
+		const refreshView = app.root.firstChild!;
+		expect(refreshView.tag).toBe("refresh");
+		expect(attrOf(app, refreshView, "enable-refresh")).toBe("true");
+		expect(refreshView.firstChild!.tag).toBe("refresh-header");
+		expect(refreshView.firstChild!.nextSibling).not.toBeUndefined(); // the placeholder view wrapping the real native list
+	});
 
-  it("pushes <refresh>'s own measured layout size to the inner List as explicit pixels, not a percentage", () => {
-    // A percentage style on List here does NOT reliably resolve against
-    // <refresh> as a parent (confirmed on device: the list's items rendered
-    // shrink-wrapped to content width while <refresh> itself filled its box
-    // correctly) — see feed-list.js's own comment on this. The fix measures
-    // <refresh> via its own onlayoutchange and pushes real pixels instead.
-    const root = mount(() =>
-      m(FeedList, {
-        items: ["a"],
-        renderItem: (item: string) => m("text", {}, item),
-        refreshOptions: true,
-        style: { width: "100%", height: "260px" },
-      }),
-    );
-    const refreshView = root.firstChild.firstChild;
-    const list = refreshView.firstChild.nextSibling.firstChild;
+	it("pushes <refresh>'s own measured layout size to the inner List as explicit pixels, not a percentage", async () => {
+		// A percentage style on List here does NOT reliably resolve against
+		// <refresh> as a parent (confirmed on device: the list's items rendered
+		// shrink-wrapped to content width while <refresh> itself filled its box
+		// correctly) — see feed-list.js's own comment on this. The fix measures
+		// <refresh> via its own onlayoutchange and pushes real pixels instead.
+		const key = uniqueKey();
+		registerListRenderer(key, (item: string) => m("text", {}, item));
+		const app = mount(() => m(FeedList, { items: ["a"], rendererKey: key, refreshOptions: true, style: { width: "100%", height: "260px" } }));
+		const refreshView = app.root.firstChild!;
+		// .nextSibling here is List's own placeholder <view> (see list.js's
+		// own header) — the real native list is a further child appended
+		// imperatively in List's oncreate, not List's own top-level node.
+		const list = refreshView.firstChild!.nextSibling!.firstChild!;
 
-    fire(refreshView, "layoutchange", { width: 344, height: 260 });
+		fire(refreshView, "layoutchange", { detail: { width: 344, height: 260 } });
+		// onlayoutchange only sets state synchronously — the redraw() it calls
+		// (mount-redraw's own, unlike legacy's synchronous shim.redraw()) is
+		// asynchronous, so the resulting style write only lands after this
+		// resolves. Same class of fix as popover.test.ts's REDRAW_MARGIN.
+		await new Promise((r) => setTimeout(r, 70));
 
-    // __SetInlineStyles merges directly onto the native handle's own style
-    // (`Object.assign(e.style, styles)`, both on device and in this test
-    // env — `list.style` itself is a separate, unrelated LynxStyleProxy used
-    // by mithril's own generic view rendering, not by wrapElement()'s direct
-    // PAPI calls). So the handle's own live style is the right thing to
-    // assert on — not "the last logged call", which can legitimately include
-    // a harmless empty {} from onupdate's hook running twice per redraw (see
-    // list.js's own comment on this).
-    expect(list._handle.style.width).toBe("344px");
-    expect(list._handle.style.height).toBe("260px");
-  });
+		const handle = app.applier.getHandle(list._id) as any;
+		expect(handle.style.width).toBe("344px");
+		expect(handle.style.height).toBe("260px");
+	});
 
-  it("bindstartrefresh/bindheaderoffset/bindrefreshstatechange forward to the matching callback", () => {
-    const events: unknown[] = [];
-    const root = mount(() =>
-      m(FeedList, {
-        items: ["a"],
-        renderItem: (item: string) => m("text", {}, item),
-        refreshOptions: {
-          enableRefresh: true,
-          onStartRefresh: (e: unknown) => events.push(["start", e]),
-          onRefreshOffsetChange: (e: unknown) => events.push(["offset", e]),
-          onRefreshStateChange: (e: unknown) => events.push(["state", e]),
-        },
-      }),
-    );
-    const refreshView = root.firstChild.firstChild;
+	it("bindstartrefresh/bindheaderoffset/bindrefreshstatechange forward to the matching callback", () => {
+		const key = uniqueKey();
+		registerListRenderer(key, (item: string) => m("text", {}, item));
+		const events: unknown[] = [];
+		const app = mount(() =>
+			m(FeedList, {
+				items: ["a"],
+				rendererKey: key,
+				refreshOptions: {
+					enableRefresh: true,
+					onStartRefresh: (e: unknown) => events.push(["start", e]),
+					onRefreshOffsetChange: (e: unknown) => events.push(["offset", e]),
+					onRefreshStateChange: (e: unknown) => events.push(["state", e]),
+				},
+			}),
+		);
+		const refreshView = app.root.firstChild!;
 
-    fire(refreshView, "startrefresh", { isManual: true });
-    fire(refreshView, "headeroffset", { offsetPercent: 0.5, isDragging: true });
-    fire(refreshView, "refreshstatechange", { state: 2 });
+		fire(refreshView, "startrefresh", { detail: { isManual: true } });
+		fire(refreshView, "headeroffset", { detail: { offsetPercent: 0.5, isDragging: true } });
+		fire(refreshView, "refreshstatechange", { detail: { state: 2 } });
 
-    expect(events).toEqual([
-      ["start", { triggeredBy: "drag" }],
-      ["offset", { offset: 0, headerSize: 0, isDragging: true }], // headerHeight unmeasured yet — 0 until refresh-header's onlayoutchange fires
-      ["state", { state: 2 }],
-    ]);
-  });
+		expect(events).toEqual([
+			["start", { triggeredBy: "drag" }],
+			["offset", { offset: 0, headerSize: 0, isDragging: true }], // headerHeight unmeasured yet — 0 until refresh-header's onlayoutchange fires
+			["state", { state: 2 }],
+		]);
+	});
 
-  it("listRef.startRefresh/finishRefresh invoke the matching native UI method on the <refresh> node", () => {
-    const listRef: { startRefresh?: () => Promise<unknown>; finishRefresh?: () => Promise<unknown> } = {};
-    const root = mount(() =>
-      m(FeedList, { items: ["a"], renderItem: (item: string) => m("text", {}, item), refreshOptions: true, listRef }),
-    );
-    const refreshView = root.firstChild.firstChild;
+	it("listRef.startRefresh/finishRefresh invoke the matching native UI method on the <refresh> node", async () => {
+		const key = uniqueKey();
+		registerListRenderer(key, (item: string) => m("text", {}, item));
+		const listRef: { startRefresh?: () => Promise<unknown>; finishRefresh?: () => Promise<unknown> } = {};
+		const app = mount(() => m(FeedList, { items: ["a"], rendererKey: key, refreshOptions: true, listRef }));
+		const refreshView = app.root.firstChild!;
+		const handle = app.applier.getHandle(refreshView._id);
+		const invokeCalls = () => (globalThis as any).__nodesRefInvokeCalls as { element: unknown; method: string }[];
 
-    void listRef.startRefresh!();
-    let invokeCall = lastCallOf("__InvokeUIMethod");
-    expect(invokeCall?.args[0]).toBe(refreshView._handle);
-    expect(invokeCall?.args[1]).toBe("autoStartRefresh");
+		await listRef.startRefresh!();
+		expect(invokeCalls().filter((c) => c.element === handle).at(-1)?.method).toBe("autoStartRefresh");
 
-    void listRef.finishRefresh!();
-    invokeCall = lastCallOf("__InvokeUIMethod");
-    expect(invokeCall?.args[0]).toBe(refreshView._handle);
-    expect(invokeCall?.args[1]).toBe("finishRefresh");
-  });
+		await listRef.finishRefresh!();
+		expect(invokeCalls().filter((c) => c.element === handle).at(-1)?.method).toBe("finishRefresh");
+	});
 
-  it("listRef.scrollTo forwards to the underlying List's own scrollTo", () => {
-    const listRef: { scrollTo?: (index: number) => Promise<unknown> } = {};
-    const root = mount(() => m(FeedList, { items: ["a", "b"], renderItem: (item: string) => m("text", {}, item), listRef }));
-    const list = root.firstChild.firstChild;
+	it("listRef.scrollTo forwards to the underlying List's own scrollTo", async () => {
+		const key = uniqueKey();
+		registerListRenderer(key, (item: string) => m("text", {}, item));
+		const listRef: { scrollTo?: (index: number) => Promise<unknown> } = {};
+		const app = mount(() => m(FeedList, { items: ["a", "b"], rendererKey: key, listRef }));
+		const list = app.root.firstChild!;
 
-    void listRef.scrollTo!(1);
+		await listRef.scrollTo!(1);
 
-    const invokeCall = lastCallOf("__InvokeUIMethod");
-    expect(invokeCall?.args[0]).toBe(list._handle);
-    expect(invokeCall?.args[1]).toBe("scrollToPosition");
-  });
-
-  it("renders a load-more footer as the list's last item, and fires onLoadMore exactly once when it appears", () => {
-    let loadMoreCount = 0;
-    const items = ["a", "b"];
-    const root = mount(() =>
-      m(FeedList, {
-        items,
-        renderItem: (item: string) => m("text", {}, item),
-        onLoadMore: () => { loadMoreCount += 1; },
-        loadMoreFooter: () => m("text", {}, "Cargando..."),
-      }),
-    );
-    const list = root.firstChild.firstChild;
-
-    requestCell(list, 2); // synthetic footer index === items.length
-    // list.firstChild is native's own "list-item" wrapper (see list.js's
-    // createList()); the footer view combinedRenderItem actually returned is
-    // one level in.
-    const footer = list.firstChild.firstChild;
-    expect(footer.textContent).toBe("Cargando...");
-
-    fire(footer, "uiappear");
-    fire(footer, "uiappear"); // a second appear before any status change must not double-fire
-    expect(loadMoreCount).toBe(1);
-  });
-
-  it("renders real content again if native re-requests the SAME footer cell a second time (recycling)", () => {
-    // Regression test: loadMoreFooter/noMoreDataFooter are FUNCTIONS, called
-    // fresh per request — passing a single static vnode straight through
-    // rendered BLANK on the second componentAtIndex call for the same
-    // index, since Mithril treats a vnode object it already mounted once as
-    // an in-place update rather than fresh content for the new wrapper.
-    const items = ["a"];
-    const root = mount(() =>
-      m(FeedList, {
-        items,
-        renderItem: (item: string) => m("text", {}, item),
-        onLoadMore: () => {},
-        loadMoreFooter: () => m("text", {}, "Cargando..."),
-      }),
-    );
-    const list = root.firstChild.firstChild;
-
-    requestCell(list, 1);
-    requestCell(list, 1, 2); // same index, different opId — native re-requesting (e.g. recycle) it
-    const secondFooter = list.firstChild.nextSibling.firstChild;
-
-    expect(secondFooter.textContent).toBe("Cargando...");
-  });
-
-  it("changeHasMoreStatus(false) swaps in noMoreDataFooter and stops further onLoadMore calls", () => {
-    let loadMoreCount = 0;
-    const listRef: { changeHasMoreStatus?: (hasMore: boolean) => void } = {};
-    const items = ["a"];
-    const root = mount(() =>
-      m(FeedList, {
-        items,
-        renderItem: (item: string) => m("text", {}, item),
-        onLoadMore: () => { loadMoreCount += 1; },
-        loadMoreFooter: () => m("text", {}, "Cargando..."),
-        noMoreDataFooter: () => m("text", {}, "No hay más"),
-        listRef,
-      }),
-    );
-    const list = root.firstChild.firstChild;
-    requestCell(list, 1);
-
-    listRef.changeHasMoreStatus!(false);
-    shimModule.redraw();
-    requestCell(list, 1, 2);
-    // Nothing was recycled (enqueueComponent, native's own signal that a cell
-    // scrolled out, never ran), so this second request binds a brand-new
-    // "list-item" wrapper APPENDED after the still-attached first one rather
-    // than replacing it — the freshly-bound content is the second sibling.
-    const footer = list.firstChild.nextSibling.firstChild;
-    expect(footer.textContent).toBe("No hay más");
-
-    fire(footer, "uiappear");
-    expect(loadMoreCount).toBe(0);
-  });
-
-  it("uidisappear on the footer allows onLoadMore to fire again on a later uiappear", () => {
-    let loadMoreCount = 0;
-    const items = ["a"];
-    const root = mount(() =>
-      m(FeedList, {
-        items,
-        renderItem: (item: string) => m("text", {}, item),
-        onLoadMore: () => { loadMoreCount += 1; },
-        loadMoreFooter: () => m("text", {}, "Cargando..."),
-      }),
-    );
-    const list = root.firstChild.firstChild;
-    requestCell(list, 1);
-    const footer = list.firstChild.firstChild;
-
-    fire(footer, "uiappear");
-    fire(footer, "uidisappear");
-    fire(footer, "uiappear");
-
-    expect(loadMoreCount).toBe(2);
-  });
+		const handle = app.applier.getHandle(list._id);
+		const invokeCalls = (globalThis as any).__nodesRefInvokeCalls as { element: unknown; method: string }[];
+		expect(invokeCalls.filter((c) => c.element === handle).at(-1)?.method).toBe("scrollToPosition");
+	});
 });

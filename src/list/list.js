@@ -7,82 +7,88 @@
 // MTS-driven `main-thread:bindlayoutchange`-based auto-max-size feature,
 // a three-step MTS `scrollIntoID` that measures a target cell and computes
 // an aligned offset by hand) on top of a SINGLE real primitive: native's
-// own recycling `<list>` element. mithril-lynx CORE already has that
-// primitive, real and device-verified — `mithril-lynx/list`'s
-// `createList()` (project plan Phase 8, Tier 2). This file is the
-// DECLARATIVE MITHRIL WRAPPER the project plan asked for around it, not a
-// rebuild of everything upstream layers on top.
+// own recycling `<list>` element. mithril-lynx CORE has that primitive,
+// real and device-verified — mithril-lynx's own Op.CreateList (2.5.0+, see
+// docs/native-papi/papi-06-virtualized-lists.md). This file is the
+// DECLARATIVE MITHRIL WRAPPER around it, not a rebuild of everything
+// upstream layers on top.
 //
-// Scope cuts, deliberate and documented rather than silently dropped:
-//   - No MTS `listMaxSize`/`useMaxSize` (shrink-to-content-up-to-a-max,
-//     computed from bindlayoutchange on the main thread). Opt-in even
-//     upstream (only active when `listMaxSize` is passed) — add a
-//     registerHandler-based port here if a real need for it shows up.
-//   - No `scrollIntoID` (the three-step "measure a specific cell, compute
-//     an aligned offset, scroll to it" dance) — `scrollTo(index)` (below)
-//     covers the common "jump to position" case; scrolling to align a
-//     SPECIFIC element's edge is a real but narrower need.
-//   - No autoScroll/getVisibleCells/exposure-id/exposure-scene/iOS-only
-//     touch-propagation knobs. All straightforward to add later as plain
-//     passthrough attrs if something needs them; core's own createList()
-//     doesn't expose a generic "extra native attrs" bag today, so adding
-//     one there is the right place, not re-deriving list wiring here.
+// A real API change from every other component in this project, forced by
+// mithril-lynx's own architecture: `renderItem` is NOT a prop here. Native
+// calls a list's cell-rendering callback SYNCHRONOUSLY, on the main
+// thread, based on real scroll position — a cross-thread round trip to
+// where this component's own code runs (the background thread) can never
+// satisfy that, and a raw JS closure can't cross that boundary anyway (main
+// and background are separate JS engine instances on a real device, not
+// just separate global scopes). So the render function has to be
+// registered on the MAIN thread instead, once, by a string key
+// (`mithril-lynx/list-support`'s `registerListRenderer(key, fn)`, called
+// from the app's own main-thread.ts) — `<List rendererKey="...">` just
+// references that same key. `items` still comes through normally as a
+// prop, since it's plain data, not code — it crosses the boundary fine.
+//
+// Known, deliberate gaps carried from this same constraint:
+//   - No custom `itemKey` function — same cross-thread-closure problem as
+//     renderItem. Every cell keys by its own index (a String(cellIndex)),
+//     matching what mithril-lynx's Op.CreateList already does by default.
+//   - An event handler inside a rendererKey's own vnode tree (e.g. a tap
+//     on a list item) has no way back to this app's state — there's no
+//     background-thread fake-dom node for list cell content to dispatch
+//     through. Needs a deliberate reporting convention, not built yet.
+//   - No MTS `listMaxSize`/`useMaxSize`, no `scrollIntoID`, no
+//     autoScroll/getVisibleCells/exposure-id/exposure-scene/iOS-only
+//     touch-propagation knobs — same scope cuts as before this migration,
+//     unrelated to the rendererKey change.
 //
 // What IS carried over faithfully: native requires scroll-orientation/
-// list-type/span-count and each item's item-key unconditionally (see
-// mithril-lynx's own list.js header, itself sourced from a real device
-// trace) — createList() already enforces exactly that; this wrapper's job
-// is turning an ordinary `items` array + `renderItem(item, index)` into
-// the index-based `renderItem(index)` shape createList() itself expects,
-// and re-attaching the SAME list instance's renderItem/items closures
-// fresh every render so a later native recycling call always sees current
-// data — a fresh createList() per render would tear down and rebuild
-// native's entire scroll position and cell pool for no reason.
+// list-type/span-count unconditionally — Op.CreateList already enforces
+// exactly that; this wrapper's job is exposing that as ordinary attrs and
+// re-pushing the current item COUNT on every update (content changes to an
+// already-bound, already-visible cell don't automatically refresh — same
+// limitation the pre-migration version already had, unrelated to this
+// change) so native's own recycling knows how many cells exist to ask for.
 
-import m from "mithril";
-import { createList } from "mithril-lynx-v1/list";
-import { wrapElement } from "mithril-lynx-v1/element";
+import m from "mithril-runtime";
+import { ensureId, createRef } from "../internal/native-ref.js";
 
 export const List = {
 	oninit(vnode) {
 		vnode.state.listRef = {};
+		vnode.state.refId = ensureId(vnode.attrs.id);
 	},
 
 	oncreate(vnode) {
 		const s = vnode.state;
-		const { items = [], renderItem, itemKey, className, style, scrollOrientation, listType, spanCount, mainAxisGap = 0, crossAxisGap = 0 } = vnode.attrs;
-		// Refreshed on every render (onupdate below) — createList()'s own
-		// renderItem/itemKey callbacks close over THESE fields rather than
-		// the attrs available at creation time, so native recycling a cell
-		// long after a data change still sees the current items/renderItem.
-		s.items = items;
-		s.renderItem = renderItem;
-		s.itemKey = itemKey;
+		const { items = [], rendererKey, className, style, scrollOrientation, listType, spanCount, mainAxisGap = 0, crossAxisGap = 0 } = vnode.attrs;
+		if (typeof rendererKey !== "string") {
+			throw new Error(
+				"mithril-lynx-ui: <List> requires a `rendererKey` — register its renderer with registerListRenderer() from your app's main-thread.ts (see docs/native-papi/papi-06-virtualized-lists.md).",
+			);
+		}
 
-		s.list = createList(vnode.dom, {
-			itemCount: items.length,
-			renderItem: (index) => s.renderItem(s.items[index], index),
-			itemKey: s.itemKey ? (index) => s.itemKey(s.items[index], index) : undefined,
-			className,
-			scrollOrientation,
-			listType,
-			spanCount,
-		});
+		// Imperative escape hatch, same "outside Mithril's own reconciliation"
+		// contract mithril-lynx's own createGesture()/native refs already use
+		// — a native <list> isn't something render.js knows how to diff, it's
+		// created directly via the owning document's own factory method and
+		// attached as a plain child of this component's placeholder view.
+		s.list = vnode.dom.ownerDocument.createNativeList(rendererKey, { scrollOrientation, listType, spanCount });
+		s.list.setAttribute("id", s.refId);
+		if (className != null) s.list.className = className;
 		vnode.dom.appendChild(s.list);
 
-		const ref = wrapElement(s.list);
+		// Op.CreateList sets scroll-orientation/list-type/span-count itself
+		// but knows nothing about style or item spacing. width/height (or a
+		// flex ancestor) is what actually gives the list a scrollable area,
+		// so style is pushed here directly rather than left for a consumer to
+		// discover the hard way that nothing scrolls without it. Gaps are
+		// real native attributes (confirmed against the real
+		// @lynx-js/lynx-ui-list source), not CSS.
+		if (style != null) s.list.style = style;
+		s.list.setAttribute("list-main-axis-gap", mainAxisGap);
+		s.list.setAttribute("list-cross-axis-gap", crossAxisGap);
+		s.list.setListItems(items);
 
-		// createList() sets scroll-orientation/list-type/span-count/className
-		// itself but knows nothing about style or item spacing.
-		// width/height (or a flex ancestor) is what actually gives the list a
-		// scrollable area, so style is pushed here directly rather than left
-		// for a consumer to discover the hard way that nothing scrolls
-		// without it. Gaps are real native attributes (confirmed against the
-		// real @lynx-js/lynx-ui-list source), not CSS — core's createList()
-		// doesn't set them itself, so this wrapper does.
-		if (style != null) ref.setStyleProperties(style);
-		ref.setAttribute("list-main-axis-gap", mainAxisGap);
-		ref.setAttribute("list-cross-axis-gap", crossAxisGap);
+		const ref = createRef(s.refId);
 		s.listRef.scrollTo = (index, options) =>
 			ref.invoke("scrollToPosition", Object.assign({ position: index, index, useScroller: true }, options));
 		if (vnode.attrs.listRef != null) Object.assign(vnode.attrs.listRef, s.listRef);
@@ -90,29 +96,23 @@ export const List = {
 
 	onupdate(vnode) {
 		const s = vnode.state;
-		const { items = [], renderItem, itemKey, style } = vnode.attrs;
-		s.items = items;
-		s.renderItem = renderItem;
-		s.itemKey = itemKey;
-		s.list.setItemCount(items.length);
+		const { items = [], style } = vnode.attrs;
+		s.list.setListItems(items);
 		// Skips a genuinely EMPTY style object: onupdate's hook can run twice
 		// for a single redraw() call (a real, reproducible mithril-lynx
-		// vnode-diffing quirk, unrelated to this file — confirmed by calling
-		// shim.redraw() twice in a row on an otherwise-unchanged List and
-		// seeing two separate pushes, the second an empty {}). Harmless
-		// either way — __SetInlineStyles merges (`Object.assign(e.style, ...)`
-		// on device and in the test env alike), so a stray {} can't clear
-		// anything previously set — but skipping it avoids a wasted PAPI call
-		// on every redraw.
-		if (style != null && Object.keys(style).length > 0) wrapElement(s.list).setStyleProperties(style);
+		// vnode-diffing quirk, unrelated to this file). Harmless either way —
+		// a native prop write merges, it doesn't replace — but skipping it
+		// avoids a wasted cross-thread call on every redraw.
+		if (style != null && Object.keys(style).length > 0) s.list.style = style;
 	},
 
 	// A plain placeholder view Mithril creates and diffs normally; the real
 	// native <list> is appended to it imperatively in oncreate and is
 	// otherwise invisible to Mithril's own tree (same "escape hatch"
-	// contract as core's own createList()/createGesture()). No style here —
-	// it exists only to give oncreate somewhere to hang the real list off
-	// of, and sizes to wrap that single child.
+	// contract as this project's other native-gesture/native-ref
+	// components). No style here — it exists only to give oncreate
+	// somewhere to hang the real list off of, and sizes to wrap that single
+	// child.
 	view() {
 		return m("view");
 	},

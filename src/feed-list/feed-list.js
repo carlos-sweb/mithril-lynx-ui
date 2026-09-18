@@ -13,39 +13,44 @@
 // exactly that element for when the custom hook isn't needed.
 //
 // This port ships ONLY the native-refresh path, built on this project's own
-// already-shipped `./list.js`, plus a genuinely useful, much smaller
-// addition of its own: infinite-scroll "load more", via a sentinel footer
-// item using the SAME per-node `uiappear` exposure mechanism already
-// established (and device-verified) in `./lazy-component.js` — no global
-// event bus, no scroll-position math.
+// already-shipped `./list.js`.
 //
 // Deliberate, documented scope cut: the entire `useRefreshAndBounce` hook —
 // custom MTS-driven pull-to-refresh physics (`mode: 'hook'`, the upstream
 // default) and elastic `bounceableOptions` edge decorations. Both are real
 // features, but reimplementing 1266 lines of hand-rolled drag physics that
 // native's own `<refresh>` element already solves for the common case is a
-// cost this project isn't paying speculatively — revisit if a real need for
-// a fully custom (non-native) refresh header/animation or edge-bounce
-// decoration shows up. `refreshOptions.mode` therefore has no effect here;
-// this file always behaves as upstream's `mode: 'native'`.
+// cost this project isn't paying speculatively.
+//
+// A SECOND, NEW scope cut, forced by this project's migration to the
+// current mithril-lynx (see docs/native-papi/papi-06-virtualized-lists.md):
+// the infinite-scroll "load more" footer sentinel this file used to ship
+// (a footer item whose own onuiappear/onuidisappear triggered
+// `onLoadMore()`) is NOT carried over. `./list.js`'s cell content now
+// renders entirely on the main thread (list.js's own "known gap"), and a
+// footer sentinel's whole point was reacting to a native event FROM INSIDE
+// list cell content and calling back into this app's own state
+// (`onLoadMore`) — exactly the reach-back that gap doesn't support yet.
+// Revisit once list.js's own cell-interaction gap has a real answer; until
+// then, an app wanting "load more" needs its own mechanism outside the
+// list's own cell content (e.g. a scroll-position listener on an ancestor
+// `<scroll-view>`, or a manual "load more" button below the list).
 //
 // Known, real, core-level gap worth knowing before wiring `onStartRefresh`:
-// `./list.js`'s underlying `createList()` (mithril-lynx core) only diffs an
-// `items` COUNT INCREASE as new entries appended at the END — confirmed on
-// device by PREPENDING a "pull to refresh" result, which left the
-// already-bound first cell showing its OLD content instead of the new item.
-// A refresh handler that wants NEW items to appear at the top needs to
-// either replace the whole `items` array with a fresh reference (forces
-// every visible cell to re-render) or accept append-only growth; this file
-// doesn't attempt to work around a core list-diffing limitation.
+// `./list.js`'s underlying native list only diffs an `items` COUNT
+// INCREASE as new entries appended at the END — confirmed on device (the
+// pre-migration version of this file) by PREPENDING a "pull to refresh"
+// result, which left the already-bound first cell showing its OLD content
+// instead of the new item. A refresh handler that wants NEW items to
+// appear at the top needs to either replace the whole `items` array with a
+// fresh reference (forces every visible cell to re-render) or accept
+// append-only growth; this file doesn't attempt to work around that.
 
-import m from "mithril";
-import shim from "mithril-lynx-v1";
-import { wrapElement } from "mithril-lynx-v1/element";
+import m from "mithril-runtime";
+import { redraw } from "mithril-lynx/mount-redraw";
+import { ensureId, createRef } from "../internal/native-ref.js";
 import { nativeBool } from "../internal/native.js";
 import { List } from "../list/list.js";
-
-const FOOTER_KEY = "__mithril-lynx-ui-feed-list-footer__";
 
 function detailOf(e) {
 	return (e && e.detail) || {};
@@ -55,120 +60,25 @@ export const FeedList = {
 	oninit(vnode) {
 		const s = vnode.state;
 		s.baseListRef = {};
-		s.refreshDom = null;
+		s.refreshRefId = ensureId(null);
 		s.headerHeight = 0;
 		s.refreshSize = null;
-		s.hasMoreData = true;
-		s.footerAppeared = false;
 
 		s.feedListRef = {
 			scrollTo: (...args) => s.baseListRef.scrollTo(...args),
-			startRefresh: () => {
-				if (s.refreshDom == null) return Promise.resolve();
-				return wrapElement(s.refreshDom).invoke("autoStartRefresh");
-			},
-			finishRefresh: () => {
-				if (s.refreshDom == null) return Promise.resolve();
-				return wrapElement(s.refreshDom).invoke("finishRefresh");
-			},
-			changeHasMoreStatus: (hasMore) => {
-				s.hasMoreData = hasMore;
-				// Reset so scrolling the footer back into view (e.g. after
-				// prepending items) can request another page again.
-				if (hasMore) s.footerAppeared = false;
-			},
+			startRefresh: () => createRef(s.refreshRefId).invoke("autoStartRefresh"),
+			finishRefresh: () => createRef(s.refreshRefId).invoke("finishRefresh"),
 		};
 	},
 
 	view(vnode) {
 		const s = vnode.state;
-		const {
-			items = [],
-			renderItem,
-			itemKey,
-			className,
-			style,
-			listId = "feedList",
-			refreshOptions = false,
-			onLoadMore,
-			loadMoreFooter,
-			noMoreDataFooter,
-			listRef,
-			...listAttrs
-		} = vnode.attrs;
+		const { items = [], rendererKey, className, style, listId = "feedList", refreshOptions = false, listRef, ...listAttrs } = vnode.attrs;
 
 		const refreshProps = typeof refreshOptions === "object" ? refreshOptions : {};
 		const enableRefresh = typeof refreshOptions === "object" ? refreshOptions.enableRefresh === true : refreshOptions === true;
 
 		if (listRef != null) Object.assign(listRef, s.feedListRef);
-
-		const showFooter = typeof onLoadMore === "function";
-		const footerIndex = items.length;
-		const combinedItems = showFooter ? [...items, null] : items;
-
-		const combinedRenderItem = (item, index) => {
-			if (showFooter && index === footerIndex) {
-				return m(
-					"view",
-					{
-						// A real, reproducible mithril-lynx CORE bug, not this file's own:
-						// the shim's own removeAttribute("class") calls
-						// __SetClasses(handle, undefined) instead of an empty string
-						// (lynx-mithril-shim.js, LynxNodeWrapper.prototype.removeAttribute)
-						// — native rejects that with "FiberSetClasses param 1 should be
-						// String". Confirmed on device: THIS wrapper (no class) recycled
-						// into the SAME native list-item wrapper a real row (renderItem's
-						// own output, which usually has one) previously occupied, or vice
-						// versa, hits exactly that class-attr removal path. A stable,
-						// always-present class on this wrapper sidesteps it — it never
-						// transitions to/from "no class" during recycling.
-						class: "ui-feed-list-footer-item",
-						"exposure-id": `${listId}-loadMoreFooter`,
-						"exposure-scene": listId,
-						onuiappear: () => {
-							if (!s.hasMoreData || s.footerAppeared) return;
-							s.footerAppeared = true;
-							onLoadMore();
-						},
-						onuidisappear: () => {
-							s.footerAppeared = false;
-						},
-					},
-					// loadMoreFooter/noMoreDataFooter are FUNCTIONS, called fresh here,
-					// not raw vnodes passed straight through — the same "must return a
-					// fresh vnode, may be called more than once for the same item"
-					// contract list.js's own renderItem already documents. Confirmed on
-					// device: passing a single pre-built vnode object straight through
-					// rendered the footer BLANK once native recycling re-requested that
-					// same cell a second time — Mithril treats a vnode object it has
-					// already mounted once as an update-in-place, not fresh content, so
-					// the SECOND wrapper never actually got the content.
-					(s.hasMoreData ? loadMoreFooter : noMoreDataFooter)?.(),
-				);
-			}
-			return renderItem(item, index);
-		};
-
-		// Keyed by POSITION, not a shared constant: the footer's own logical
-		// index moves every time `items` grows (it's always `items.length`),
-		// but `./list.js`'s `setItemCount` only ever tells native about COUNT
-		// growth at the tail — it has no way to tell native "the item-key at
-		// an already-bound index changed identity". A shared FOOTER_KEY
-		// therefore collided on device: after onLoadMore grew the list, the
-		// OLD footer position (still holding that key, per native's own last
-		// known binding) and the NEWLY inserted footer at the new tail
-		// position both carried the same key, and native's own diffing
-		// rejected it outright ("Error for duplicated list item-key").
-		// Deriving the key from `index` makes every historical footer
-		// position unique, so no two inserts ever collide — the STALE cell
-		// (still showing old footer content at its old position until the
-		// user scrolls it out of view and back, letting native recycle and
-		// re-request it) is a separate, milder, self-correcting UX nuance of
-		// the same underlying tail-only diffing limitation, not something
-		// this file works around further.
-		const combinedItemKey = showFooter
-			? (item, index) => (index === footerIndex ? `${FOOTER_KEY}-${index}` : (itemKey ? itemKey(item, index) : String(index)))
-			: itemKey;
 
 		// Sizing this took two real, device-confirmed findings to get right,
 		// neither guessable from the docs:
@@ -180,35 +90,23 @@ export const FeedList = {
 		//    100% as a fallback) for <refresh> to inherit via its own
 		//    width:100%/height:100%.
 		// 2. But a PERCENTAGE style on the inner ./list.js List — which
-		//    appends its native <list> imperatively via createList()/
-		//    appendChild rather than through Lynx's own declarative element
-		//    tree (see list.js's own header) — does NOT reliably resolve
-		//    against <refresh> as a percentage parent: on device this
-		//    rendered the list's items shrink-wrapped to content width
-		//    (a ~215px sliver) while <refresh> itself correctly filled the
-		//    ~660px box around it. A literal pixel width on the SAME List in
-		//    the SAME position rendered correctly, isolating this to
-		//    percentage resolution through this specific imperative-native
-		//    boundary, not a general <refresh> layout problem. Fix: measure
-		//    <refresh>'s real box via its own onlayoutchange and push that
-		//    to List as explicit pixels — sidesteps the percentage path
-		//    entirely, the same "measure, then push real pixels" pattern
-		//    already used for the header via headerHeight below.
-		const listStyle = enableRefresh && s.refreshSize
-			? { width: `${s.refreshSize.width}px`, height: `${s.refreshSize.height}px` }
-			: style;
+		//    appends its native <list> imperatively rather than through
+		//    Lynx's own declarative element tree (see list.js's own header)
+		//    — does NOT reliably resolve against <refresh> as a percentage
+		//    parent: on device this rendered the list's items shrink-wrapped
+		//    to content width (a ~215px sliver) while <refresh> itself
+		//    correctly filled the ~660px box around it. A literal pixel
+		//    width on the SAME List in the SAME position rendered correctly,
+		//    isolating this to percentage resolution through this specific
+		//    imperative-native boundary, not a general <refresh> layout
+		//    problem. Fix: measure <refresh>'s real box via its own
+		//    onlayoutchange and push that to List as explicit pixels —
+		//    sidesteps the percentage path entirely, the same "measure, then
+		//    push real pixels" pattern already used for the header via
+		//    headerHeight below.
+		const listStyle = enableRefresh && s.refreshSize ? { width: `${s.refreshSize.width}px`, height: `${s.refreshSize.height}px` } : style;
 
-		const list = m(
-			List,
-			Object.assign({}, listAttrs, {
-				items: combinedItems,
-				renderItem: combinedRenderItem,
-				itemKey: combinedItemKey,
-				className,
-				style: listStyle,
-				listRef: s.baseListRef,
-			}),
-		);
+		const list = m(List, Object.assign({}, listAttrs, { items, rendererKey, className, style: listStyle, listRef: s.baseListRef }));
 
 		if (!enableRefresh) return list;
 
@@ -226,18 +124,16 @@ export const FeedList = {
 			m(
 				"refresh",
 				{
-					id: `${listId}-refreshView`,
+					id: s.refreshRefId,
 					class: "ui-feed-list-refresh",
 					style: { display: "flex", "flex-direction": "column", width: "100%", height: "100%" },
 					"enable-refresh": nativeBool(true),
-					oncreate: (child) => { s.refreshDom = child.dom; },
-					onupdate: (child) => { s.refreshDom = child.dom; },
 					onlayoutchange: (e) => {
 						const d = detailOf(e);
 						if (d.width == null || d.height == null) return;
 						if (s.refreshSize && s.refreshSize.width === d.width && s.refreshSize.height === d.height) return;
 						s.refreshSize = { width: d.width, height: d.height };
-						shim.redraw();
+						redraw();
 					},
 					onstartrefresh: (e) => {
 						if (typeof refreshProps.onStartRefresh === "function") {
@@ -276,16 +172,9 @@ export const FeedList = {
 							// reveals it by translating the visible area down as the user drags,
 							// not by giving it a reserved flex slot.
 							style: { position: "absolute", overflow: "visible" },
-							// `onlayoutchange`/`bindlayoutchange` isn't documented specifically
-							// for `<refresh-header>` in refresh.md, but it's the same generic
-							// layout event already used (and device-verified) on a plain
-							// `<view>` in lazy-component.js — assumed to work the same way
-							// here since refresh-header is just another native element in the
-							// layout tree. Not yet confirmed on THIS element specifically;
-							// only used to convert onRefreshOffsetChange's percent into a
-							// pixel offset; onHeaderOffset's own offsetPercent still works if
-							// this never fires.
-							onlayoutchange: (e) => { s.headerHeight = detailOf(e).height || 0; },
+							onlayoutchange: (e) => {
+								s.headerHeight = detailOf(e).height || 0;
+							},
 						},
 						refreshProps.headerContent,
 					),
