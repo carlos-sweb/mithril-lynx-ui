@@ -31,8 +31,8 @@
 // snapped back. So the rendered style carries the same value the imperative
 // write does, and a redraw becomes a no-op for it instead of a reset.
 
-import m from "mithril";
-import { wrapElement } from "mithril-lynx-v1/element";
+import m from "mithril-runtime";
+import { ensureId, createRef } from "../internal/native-ref.js";
 import { cx } from "../internal/cx.js";
 
 const MIN_INT = Number.MIN_SAFE_INTEGER;
@@ -88,11 +88,14 @@ export const Draggable = {
 		s.translateAtStart = { x: 0, y: 0 };
 		s.startPoint = null;
 		s.dragging = false;
+		// A native ref (see internal/native-ref.js) is by id — reuse an
+		// explicit one from draggableProps if given, otherwise mint one.
+		s.refId = ensureId(vnode.attrs.draggableProps && vnode.attrs.draggableProps.id);
 	},
 
 	oncreate(vnode) {
 		const s = vnode.state;
-		s.el = wrapElement(vnode.dom);
+		s.el = createRef(s.refId);
 
 		const draggableRef = vnode.attrs.draggableRef;
 		if (draggableRef != null) {
@@ -146,7 +149,7 @@ export const Draggable = {
 
 		return m(
 			"view",
-			Object.assign({}, vnode.attrs.draggableProps, handlers, {
+			Object.assign({ id: s.refId }, vnode.attrs.draggableProps, handlers, {
 				class: cx(className, { "ui-dragging": s.dragging }),
 				style: Object.assign({}, style, {
 					transform: `translate(${s.translate.x}px, ${s.translate.y}px)`,

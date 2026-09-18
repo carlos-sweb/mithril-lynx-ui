@@ -12,7 +12,7 @@
 //
 // *** RESOLVED (2026-09-12) — was flagged here as an unresolved core bug;
 // re-tested on device and no longer reproduces *** . The original report
-// (2026-09-11): calling shim.redraw() from a Draggable's onDragStart or
+// (2026-09-11): calling redraw() from a Draggable's onDragStart or
 // onDragEnd callback crashed with "TypeError: not a function" inside a
 // LATER, seemingly unrelated component's view() call, and simply mounting
 // any real SortableItem also broke the separately-shipped SwipeAction
@@ -86,8 +86,8 @@
 // other native event this project already uses (touchstart, tap, ...), per
 // the shim's generic on*-maps-to-addEventListener contract.
 
-import m from "mithril";
-import shim from "mithril-lynx-v1";
+import m from "mithril-runtime";
+import { redraw } from "mithril-lynx/mount-redraw";
 import { Draggable } from "../draggable/draggable.js";
 import { cx } from "../internal/cx.js";
 import { createSwapTracker, resetSwapTracker, sortKeyArray, updateSwapTracking } from "./sortable-utils.js";
@@ -135,7 +135,7 @@ function makeApi(vnode) {
 			s.activeKey = key;
 			resetSwapTracker(s.tracker);
 			if (typeof vnode.attrs.onSortStart === "function") vnode.attrs.onSortStart();
-			shim.redraw(); // see this file's header — confirmed to crash on device
+			redraw(); // see this file's header — confirmed to crash on device
 		},
 
 		onItemDragMove(key, deltaY) {
@@ -170,7 +170,7 @@ function makeApi(vnode) {
 				const sortedData = sortedKeys.map((k) => dataByKey.get(k)).filter((item) => item != null);
 				vnode.attrs.onSortEnd(sortedData);
 			}
-			shim.redraw(); // see this file's header — confirmed to crash on device
+			redraw(); // see this file's header — confirmed to crash on device
 		},
 	};
 }

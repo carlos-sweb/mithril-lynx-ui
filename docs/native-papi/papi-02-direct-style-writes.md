@@ -158,29 +158,44 @@ function createStyleWriter(selector) {
 `setNativeProps` (visible in `NodesRef`'s typings) has no confirmation
 callback — unlike `invoke()`, it's fire-and-forget. That makes this pattern,
 in practice, simpler to bridge than manual 1's: there's nothing to wait on,
-only a need to avoid sending more updates than necessary.
+only a need to avoid sending more updates than necessary. This is real,
+implemented code — see `src/internal/native-ref.js`'s `createNativeWriter`
+(and `createRef`'s `setStyleProperty`/`setStyleProperties`, which wrap it).
+
+**A real, confirmed surprise, found writing `draggable.js`'s tests.**
+`@lynx-js/testing-environment`'s real `NodesRef.setNativeProps()` writes
+each prop with `element.setAttributeNS(null, key, value)` — a plain DOM
+**attribute**, not `element.style[key] = value`. That's a genuinely
+different place on the real element than where a normal DECLARATIVE style
+render lands: a component's `view()` returning `style: {transform: ...}`
+goes through `apply-patch.js`'s ordinary op path instead
+(`__AddInlineStyle(handle, key, value)` → `element.style[key] = value`).
+So the same `transform` value can sit in TWO different places on the same
+element depending on which path wrote it last — `element.getAttribute(key)`
+for an imperative `setNativeProps()` write, `element.style[key]` for a
+declarative render. A test reading a component's current value back has to
+check both:
+
+```ts
+function transformOf(app, node) {
+	const handle = app.applier.getHandle(node._id);
+	return handle.getAttribute("transform") ?? handle.style.transform ?? undefined;
+}
+```
+
+Whether this attribute-vs-style split reflects real device behavior too,
+or is purely an artifact of how the testing environment happens to
+simulate `setNativeProps()`, is unconfirmed — flagged the same way the
+exact expected shape of `setNativeProps`'s argument object already was.
 
 ## How to test this without a device
 
-The existing testing polyfill logs every `__`-prefixed call (`__papiCalls`),
-so a touchmove can be simulated by firing the event directly on the node
-and checking the last `__SetInlineStyles` entry:
-
-```ts
-function lastStyleWrite() {
-	return papiCalls()
-		.filter((c) => c.fn === "__SetInlineStyles")
-		.at(-1);
-}
-
-fireTouchMove(node, { clientX: 10, clientY: 20 });
-expect(lastStyleWrite()?.args[1].transform).toBe("translate(10px, 20px)");
-```
-
-There's no existing mock for the `lynx.createSelectorQuery()` bridge (see
-manual 1) — the same minimal stub works here, only simulating
-`setNativeProps` instead of `invoke`, saving the received `styles` so they
-can be inspected.
+`lynx.createSelectorQuery()` needs no mock of its own — see manual 1's "how
+to test" section for how `@lynx-js/testing-environment`'s real
+implementation gets wired up (the one fix needed lives in
+`test/harness.ts`'s `mount()`, not in a stub). Fire the touch event
+directly on the node and read the write back with the combined
+attribute/style helper above.
 
 ## Where this pattern is used
 
