@@ -211,9 +211,9 @@ export function makeGestureController(): GestureController {
 	};
 }
 
-/** { clientX, clientY } wrapped the way apply-patch.js's own coordsOf() unwraps it. */
-export function gestureTouch(clientX: number, clientY: number) {
-	return { params: { clientX, clientY } };
+/** { clientX, clientY, timestamp } wrapped the way apply-patch.js's own coordsOf() unwraps it. */
+export function gestureTouch(clientX: number, clientY: number, timestamp?: number) {
+	return { params: { clientX, clientY, timestamp } };
 }
 
 /**

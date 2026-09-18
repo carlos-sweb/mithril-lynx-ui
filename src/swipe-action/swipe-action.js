@@ -12,31 +12,28 @@
 // native gesture-arena level — not just "listen for touch events", but
 // actually claim or release the gesture before the scroll-view acts on it.
 //
-// Same bet as draggable.js and slider.js: in mithril-lynx's main-thread-
-// owned mode there's no thread hop to avoid, so the math ports as plain
-// code (internal/easing.js's cubic-bezier sampler, ported verbatim). The
-// one genuinely new piece is the gesture-arena registration itself —
-// @lynx-js/gesture-runtime is a SEPARATE package from mithril-lynx core's
-// own gesture.js, but both turned out to be thin JS layers over the exact
-// same native primitives (__SetGestureDetector/__SetGestureState/
-// __ConsumeGesture — confirmed by reading gesture-runtime's real,
-// published source: its StateManager.fail()/interceptGesture() call
-// __SetGestureState/__ConsumeGesture with the identical (handle, id, ...)
-// shape core's own createGesture().setState() already uses). So this is
-// built directly on mithril-lynx/gesture's createGesture() with
-// type: "native" — no new external dependency, no unproven capability.
-// See internal/gesture-controls.js for the fail()/interceptGesture()
-// wrapper that makes the callback bodies below read close to the original.
+// Registers a real native gesture via internal/gesture.js's
+// registerGesture() — see docs/native-papi/papi-05-native-gestures.md.
+// arenaPolicy {mode:"axis-lock", axis:"horizontal", referenceMoves:0}:
+// claim eagerly on touch-down, decide on the very first move (using the
+// down position as reference) whether the drag is actually horizontal,
+// release+fail otherwise so a genuine vertical scroll passes through to an
+// ancestor <scroll-view>. That axis decision now happens on the main
+// thread, before this file ever sees the event — onTouchesDown/Move/Up
+// below still track their OWN isFirstMove/isHorizontal locally, for the UI
+// concerns that are genuinely this component's own (the `ui-swiping`
+// class, whether to animate on release), not to make the arena decision
+// itself anymore.
 //
 // Third departure, forced rather than chosen: the snap-back animation loop
 // below calls internal/frames.js's requestFrame()/cancelFrame() — i.e.
-// lynx.requestAnimationFrame — NOT the bare global requestAnimationFrame the
-// original's MTS code uses. mithril-lynx's shim has already claimed that bare
-// name for its own microtask-based mount-redraw scheduling (see
-// lynx-mithril-shim.js's header); calling it here would drain the whole
-// animation across a burst of microtasks instead of real device frames,
-// making a "350ms" snap-back visually snap instantly. See frames.js's own
-// header for the same reasoning, first written for Presence.
+// lynx.requestAnimationFrame — NOT the bare global requestAnimationFrame,
+// which mithril-lynx's own mount-redraw scheduling has claimed for itself
+// (lynx.setTimeout-based — see its own header). Calling the bare global
+// here would drain the whole animation across a burst of microtasks
+// instead of real device frames, making a "350ms" snap-back visually snap
+// instantly. See frames.js's own header for the same reasoning, first
+// written for Presence.
 //
 // Three more departures:
 // - No `swipeActionId`/DOM-id contract (the original requires the CALLER to
@@ -66,14 +63,13 @@
 //   contains displayArea/actionArea. Same visual contract, nothing left for
 //   a consumer to remember.
 
-import m from "mithril";
-import shim from "mithril-lynx-v1";
-import { wrapElement } from "mithril-lynx-v1/element";
-import { createGesture } from "mithril-lynx-v1/gesture";
+import m from "mithril-runtime";
+import { redraw } from "mithril-lynx/mount-redraw";
+import { ensureId, createRef } from "../internal/native-ref.js";
+import { registerGesture } from "../internal/gesture.js";
 import { cx } from "../internal/cx.js";
 import { easeInOut } from "./easing.js";
 import { cancelFrame, requestFrame } from "../internal/frames.js";
-import { makeGestureControls } from "../internal/gesture-controls.js";
 import { nativeBool } from "../internal/native.js";
 
 const ANIMATION_DURATION = 350; // ms
@@ -118,7 +114,7 @@ function runSwipeAnimation(vnode, startTransform, distanceToSwipe, consumedTime,
 		}
 		setTransform(vnode, toAction ? -s.actionAreaSize : 0);
 		s.animationFrame = -1;
-		shim.redraw();
+		redraw();
 	};
 	step();
 }
@@ -147,8 +143,10 @@ function scheduleMeasure(vnode, attempt = 0) {
 
 	Promise.all([s.displayEl.invoke("boundingClientRect", { relativeTo: "" }), s.actionEl.invoke("boundingClientRect", { relativeTo: "" })]).then(
 		([displayRes, actionRes]) => {
-			const displayWidth = displayRes && displayRes.data && displayRes.data.width;
-			const actionWidth = actionRes && actionRes.data && actionRes.data.width;
+			// internal/native-ref.js's invoke() resolves with the unwrapped
+			// value already — see docs/native-papi/papi-01-imperative-refs.md.
+			const displayWidth = displayRes && displayRes.width;
+			const actionWidth = actionRes && actionRes.width;
 			const gotDisplay = typeof displayWidth === "number" && displayWidth > 0;
 			const gotAction = typeof actionWidth === "number" && actionWidth > 0;
 
@@ -159,41 +157,41 @@ function scheduleMeasure(vnode, attempt = 0) {
 				requestFrame(() => scheduleMeasure(vnode, attempt + 1));
 				return;
 			}
-			shim.redraw();
+			redraw();
 		},
 	);
 }
 
-function onTouchesDown(vnode, event, controller) {
+function onTouchesDown(vnode, event) {
 	const s = vnode.state;
-	s.controls.interceptGesture(controller, true);
 	s.isFirstMove = true;
-	s.prevX = event.params.clientX;
-	s.prevY = event.params.clientY;
+	s.prevX = event.clientX;
+	s.prevY = event.clientY;
 	s.lastMoveTimestamp = null;
 	s.velocity = 0;
 	if (typeof vnode.attrs.onSwipeStart === "function") vnode.attrs.onSwipeStart();
 }
 
-function onTouchesMove(vnode, event, controller) {
+function onTouchesMove(vnode, event) {
 	const s = vnode.state;
 	if (vnode.attrs.enableSwipe === false) return;
 	if (!s.isFirstMove && !s.isHorizontal) return;
 	clearAnimation(s);
 
-	const x = event.params.clientX;
-	const y = event.params.clientY;
+	const x = event.clientX;
+	const y = event.clientY;
 	const dx = x - s.prevX;
 	const dy = y - s.prevY;
 
 	if (s.isFirstMove) {
 		s.isFirstMove = false;
+		// The arena itself already decided this on the main thread
+		// (arenaPolicy above) — tracked again here for this component's OWN
+		// UI concerns (the `ui-swiping` class, whether onTouchesUp animates),
+		// not to redo the claim/release call, which no longer happens from
+		// app code at all.
 		s.isHorizontal = Math.abs(dx) >= Math.abs(dy);
-		if (s.isHorizontal) {
-			s.controls.interceptGesture(controller, true);
-		} else {
-			s.controls.interceptGesture(controller, false);
-			s.controls.fail(controller);
+		if (!s.isHorizontal) {
 			s.prevX = x;
 			s.prevY = y;
 			return;
@@ -204,17 +202,17 @@ function onTouchesMove(vnode, event, controller) {
 	s.prevY = y;
 
 	if (s.lastMoveTimestamp != null) {
-		const dt = event.params.timestamp - s.lastMoveTimestamp;
+		const dt = event.timestamp - s.lastMoveTimestamp;
 		s.velocity = dt !== 0 ? (x - s.lastMoveX) / dt : 0;
 	}
-	s.lastMoveTimestamp = event.params.timestamp;
+	s.lastMoveTimestamp = event.timestamp;
 	s.lastMoveX = x;
 	s.lastDirection = dx > 0 ? "closed" : "action";
 
 	setTransform(vnode, dx + s.currentTransform);
 }
 
-function onTouchesUp(vnode, _event, _controller) {
+function onTouchesUp(vnode) {
 	const s = vnode.state;
 	s.isFirstMove = true;
 
@@ -247,26 +245,25 @@ export const SwipeAction = {
 		s.isFirstMove = true;
 		s.isHorizontal = false;
 		s.animationFrame = -1;
+		// Native refs (internal/native-ref.js) are by id — see manuals 2/3.
+		// The gesture (internal/gesture.js) needs no id of its own: it's
+		// registered directly on the outer fake-dom node in oncreate below.
+		s.rowRefId = ensureId(null);
+		s.displayRefId = ensureId(null);
+		s.actionRefId = ensureId(null);
 	},
 
 	oncreate(vnode) {
 		const s = vnode.state;
-		const row = vnode.dom.firstChild; // inner row — see the file header's "two nested nodes" note
-		s.el = wrapElement(row);
-		s.displayEl = wrapElement(row.firstChild);
-		s.actionEl = wrapElement(row.firstChild.nextSibling);
+		s.el = createRef(s.rowRefId);
+		s.displayEl = createRef(s.displayRefId);
+		s.actionEl = createRef(s.actionRefId);
 		scheduleMeasure(vnode);
 
-		const gesture = createGesture(vnode.dom, {
-			type: "native",
-			callbacks: {
-				onTouchesDown: (event, controller) => onTouchesDown(vnode, event, controller),
-				onTouchesMove: (event, controller) => onTouchesMove(vnode, event, controller),
-				onTouchesUp: (event, controller) => onTouchesUp(vnode, event, controller),
-			},
-		});
-		s.gesture = gesture;
-		s.controls = makeGestureControls(vnode.dom._handle, gesture.id);
+		// arenaPolicy {mode:"axis-lock", axis:"horizontal", referenceMoves:0}:
+		// claim eagerly on touch-down, decide on the first move (using the
+		// down position as reference) — see this file's own header.
+		s.gesture = registerGesture(vnode.dom, "native", { mode: "axis-lock", axis: "horizontal", referenceMoves: 0 });
 
 		const actionRef = vnode.attrs.actionRef;
 		if (actionRef != null) {
@@ -308,10 +305,29 @@ export const SwipeAction = {
 				}),
 				"enable-new-animator": nativeBool(false),
 				"ios-enable-simultaneous-touch": nativeBool(iosEnableSimultaneousTouch),
+				// Forwarded from the registerGesture() call in oncreate — see
+				// docs/native-papi/papi-05-native-gestures.md. e.redraw = false:
+				// the drag writes its own transform imperatively (manual 2's
+				// pattern), so a diff per move would be wasted.
+				ongesturedown: (e) => {
+					onTouchesDown(vnode, e);
+					e.redraw = false;
+				},
+				ongesturemove: (e) => {
+					onTouchesMove(vnode, e);
+					e.redraw = false;
+				},
+				ongestureup: (e) => {
+					onTouchesUp(vnode, e);
+					// onTouchesUp CAN start an animation (redraw-worthy: the
+					// `ui-swiping` class flips off) — let the automatic redraw
+					// happen here, unlike the two high-frequency handlers above.
+				},
 			},
 			m(
 				"view",
 				{
+					id: s.rowRefId,
 					style: {
 						display: "linear",
 						"linear-orientation": "horizontal",
@@ -332,10 +348,11 @@ export const SwipeAction = {
 					},
 				},
 				[
-					m("view", { class: "ui-swipe-action-display", style: { height: "100%" } }, displayArea),
+					m("view", { id: s.displayRefId, class: "ui-swipe-action-display", style: { height: "100%" } }, displayArea),
 					m(
 						"view",
 						{
+							id: s.actionRefId,
 							class: "ui-swipe-action-action",
 							style: { height: "100%" },
 							ontap: () => {

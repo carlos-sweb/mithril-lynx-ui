@@ -199,6 +199,20 @@ mithril-lynx core's own `test/gesture.test.ts` covers the arena-policy
 logic itself in isolation (both policies, both `referenceMoves` values,
 and the event-forwarding path) at the primitive level.
 
+## A real bug this design found, porting `swipe-action.js`
+
+`createArenaTracker`'s "axis-lock" policy claimed the arena eagerly on
+touches-down (correct), but its losing-axis branch only called `fail()` —
+it never released that claim first. A bare `fail()` with the arena still
+marked "claimed" keeps blocking an ancestor (e.g. a `<scroll-view>`) from
+ever seeing the touch, defeating the whole point of releasing on a
+vertical move — exactly what the original single-thread implementation's
+own `interceptGesture(controller, false)` followed by `fail(controller)`
+already did correctly, and what got silently dropped rewriting that pair
+into the tracker. Fixed in mithril-lynx 2.4.2 (`release then fail`, not
+`fail` alone) — found because `swipe-action.js`'s own migrated test
+asserted on the exact call sequence, not just the end state.
+
 ## What's still genuinely unverified
 
 The arena-policy timing (claim on down; axis-lock deciding on move 1 or 2)

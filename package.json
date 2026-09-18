@@ -121,7 +121,7 @@
   "peerDependencies": {
     "mithril": "2.3.8",
     "mithril-lynx-v1": "npm:mithril-lynx@^0.0.6",
-    "mithril-lynx": "^2.4.0",
+    "mithril-lynx": "^2.4.2",
     "mithril-runtime": "^1.1.0"
   },
   "dependencies": {
