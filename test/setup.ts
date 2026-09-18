@@ -1,7 +1,7 @@
 // test/setup.ts
 //
 // This package has components on BOTH mithril-lynx v1 and v2 during the
-// migration (see .omo/plans/migrate-to-mithril-lynx-v2.md) — one test run
+// migration (see .omo/plans/migrate-off-legacy-mithril-lynx.md) — one test run
 // needs both polyfills installed. Order matters: v1's installTestingPolyfills
 // wraps EVERY `__`-prefixed PAPI function for its own __papiCalls recording
 // (used by v1 tests' papiCalls()/lastClassOf() helpers) — if it ran first,

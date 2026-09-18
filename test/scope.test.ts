@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril-runtime";
 import { createScope } from "../src/scope/scope.js";
-import { mount } from "./v2-harness.js";
+import { mount } from "./harness.js";
 
 // Exercised the same way mithril-lynx v2 core's own end-to-end.test.ts tests
 // a real component tree: renderApp() + a real patch replay via

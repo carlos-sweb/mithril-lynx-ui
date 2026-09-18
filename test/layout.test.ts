@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril-runtime";
 import { AspectRatio, Box, Center, Column, Divider, Grid, GridItem, Row, Spacer, Stack, ZStack } from "../src/layout/layout.js";
-import { mount, textOf, styleOf } from "./v2-harness.js";
+import { mount, textOf, styleOf } from "./harness.js";
 
 // layout.js is pure structural CSS on <view> — no gestures, no presence, no
 // scope. These tests just assert the emitted class/style contract for each

@@ -1,7 +1,7 @@
 // Ambient declaration for the ESM presence.js (the file itself is not
 // type-checked; this describes its runtime export shape for TS consumers).
 
-import type { Component } from "mithril";
+import type { Component } from "mithril-runtime";
 
 export declare const PresenceState: {
   readonly Initial: 0;

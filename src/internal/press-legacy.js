@@ -1,13 +1,28 @@
-// internal/press-v2.js
+// internal/press-legacy.js
 //
-// The mithril-lynx v2 variant of press.js. Same contract (press state plus
-// the native touch/tap wiring every interactive component shares), one real
-// difference: no explicit redraw call at all. v1 deliberately normalizes
-// every event with `redraw: false` (a redraw on every touch event would be
-// wasteful there), so press.js has to ask for one itself. v2's own
-// commit.js has no such opt-out — Mithril's real `EventDict.handleEvent`
-// auto-redraws after ANY event handler runs, unconditionally, which is
-// exactly what makes `state.pressed = next` alone enough here.
+// The mithril-lynx-legacy (0.0.x) variant — still used by every component
+// not yet migrated (see .omo/plans/migrate-off-legacy-mithril-lynx.md).
+// Migrated components use press.js instead, which drops the explicit
+// shim.redraw() call entirely: the current mithril-lynx redraws
+// automatically after every event, unlike the legacy one (see press.js's
+// own header for why that's not just a rename).
+//
+// Mithril equivalent of lynx-ui's usePressTap + useTouchEmulation pair
+// (lynx-ui-switch/src/use-press-tap.ts, @lynx-js/react-use): press state
+// plus the native touch/tap wiring every interactive component shares, with
+// the same semantics — a disabled element never becomes active and never
+// fires a tap, and going disabled mid-press clears the pressed state.
+//
+// Two things differ from the React original, both forced by the runtime
+// rather than chosen:
+//   - State lives on the component's own vnode.state (Mithril's per-instance
+//     object) instead of useState.
+//   - mithril-lynx normalizes every event with `redraw: false` on purpose
+//     (see its CONTRACT.md — a redraw on every touch event would be
+//     wasteful), so a state change here has to ask for the redraw itself.
+//     Encapsulated here so no component has to remember it.
+
+import shim from "mithril-lynx-v1";
 
 /**
  * Reads/updates `state.pressed` and returns the attrs to spread onto the
@@ -18,7 +33,9 @@ export function pressAttrs(state, options) {
 	const { disabled = false, onTap } = options || {};
 
 	const setPressed = (next) => {
+		if (state.pressed === next) return;
 		state.pressed = next;
+		shim.redraw();
 	};
 
 	return {

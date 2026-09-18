@@ -16,7 +16,7 @@
 
 import m from "mithril-runtime";
 import { cx } from "../internal/cx.js";
-import { isActive, pressAttrs, renderChildren } from "../internal/press-v2.js";
+import { isActive, pressAttrs, renderChildren } from "../internal/press.js";
 import { createScope } from "../scope/scope.js";
 
 const switchScope = createScope();

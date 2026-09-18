@@ -92,7 +92,7 @@ import { wrapElement } from "mithril-lynx-v1/element";
 import { Button } from "../button/button.js";
 import { cx } from "../internal/cx.js";
 import { requestFrame } from "../internal/frames.js";
-import { PresenceState, Presence, resolveAnimationStatus, usePresence } from "../presence/presence.js";
+import { PresenceState, Presence, resolveAnimationStatus, usePresence } from "../presence/presence-legacy.js";
 import { createScope } from "../scope/scope.js";
 
 const popoverScope = createScope();

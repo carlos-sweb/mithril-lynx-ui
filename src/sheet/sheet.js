@@ -70,8 +70,8 @@ import { wrapElement } from "mithril-lynx-v1/element";
 import { Button } from "../button/button.js";
 import { cx } from "../internal/cx.js";
 import { makeGestureControls } from "../internal/gesture-controls.js";
-import { renderChildren } from "../internal/press.js";
-import { PresenceState, Presence, resolveAnimationStatus, usePresence } from "../presence/presence.js";
+import { renderChildren } from "../internal/press-legacy.js";
+import { PresenceState, Presence, resolveAnimationStatus, usePresence } from "../presence/presence-legacy.js";
 import { createScope } from "../scope/scope.js";
 
 const sheetScope = createScope();

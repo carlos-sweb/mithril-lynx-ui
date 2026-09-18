@@ -13,19 +13,23 @@ export default defineConfig({
     rspack: {
       module: {
         rules: [
-          // The v1 mithril-lynx package entry (src/lynx-mithril-shim.js) is
-          // CommonJS (module.exports), but Rspack treats .js as ESM inside a
-          // "type": "module" package by default — same fix mithril-lynx
-          // core's own rstest.config.ts applies to itself, scoped here to
-          // the node_modules copy since we consume it as a real dependency.
-          // Matches BOTH the real "mithril-lynx" v2 package (real ESM
-          // already — this rule is a harmless no-op there) and the
-          // "mithril-lynx-v1" npm alias this project installs alongside it
-          // during the v1->v2 migration (see .omo/plans/
-          // migrate-to-mithril-lynx-v2.md) — the alias directory name has a
-          // "-v1" suffix the original regex didn't account for.
+          // The legacy mithril-lynx package's entry (src/lynx-mithril-shim.js,
+          // installed here under the "mithril-lynx-v1" npm alias — see
+          // .omo/plans/migrate-off-legacy-mithril-lynx.md) is CommonJS
+          // (module.exports), but Rspack treats .js as ESM inside a
+          // "type": "module" package by default — same fix that package's
+          // own rstest.config.ts applies to itself.
+          //
+          // Deliberately scoped to ONLY the "-v1" alias, not "mithril-lynx"
+          // (current) too: the current package's own src/*.js files are
+          // REAL ESM (e.g. testing.js's `export { x } from "./y.js"`), and
+          // "javascript/dynamic" does NOT support import/export syntax at
+          // all — applying this rule there broke every test with "'import'
+          // and 'export' cannot be used outside of module code", confirmed
+          // the hard way after a previous, broader version of this regex
+          // matched both packages on the assumption both needed the fix.
           {
-            test: /mithril-lynx(?:-v1)?[\\/]src[\\/].*\.js$/,
+            test: /mithril-lynx-v1[\\/]src[\\/].*\.js$/,
             type: "javascript/dynamic",
           },
         ],

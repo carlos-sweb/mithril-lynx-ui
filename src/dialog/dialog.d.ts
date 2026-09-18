@@ -2,7 +2,7 @@
 // type-checked; this describes its runtime export shape for TS consumers).
 
 import type { Component } from "mithril-runtime";
-import type { PresenceStatus } from "../presence/presence-v2.js";
+import type { PresenceStatus } from "../presence/presence.js";
 
 export interface DialogRootAttrs {
   /** Controlled mode when provided — defaultShow has no effect and you own show/close yourself. */

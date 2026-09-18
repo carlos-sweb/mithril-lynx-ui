@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril-runtime";
 import { Button } from "../src/button/button.js";
-import { mount, fire, textOf } from "./v2-harness.js";
+import { mount, fire, textOf } from "./harness.js";
 
 // Asserts the behaviour contract ported from @lynx-js/lynx-ui-button: the
 // exact state classes (that's what makes lynx-ui CSS render identically

@@ -2,7 +2,7 @@ import { describe, expect, it } from "@rstest/core";
 import m from "mithril-runtime";
 import { Checkbox, CheckboxIndicator } from "../src/checkbox/checkbox.js";
 import { Radio, RadioGroup, RadioIndicator } from "../src/radio-group/radio-group.js";
-import { mount, fire, textOf } from "./v2-harness.js";
+import { mount, fire, textOf } from "./harness.js";
 
 // Both components are built ON button.js, so these tests focus on what they
 // add over it: checked/indeterminate semantics, group coordination, and the

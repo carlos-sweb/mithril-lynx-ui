@@ -1,4 +1,4 @@
-// presence-v2.js
+// presence-legacy.js
 //
 // Mithril port of @lynx-js/lynx-ui-presence (Apache-2.0 — see ./NOTICE):
 // keeps an element mounted until its leave animation has actually finished,
@@ -26,11 +26,11 @@
 // analogue: like useEffect they run after the tree is committed, not during
 // view(), so a state change made there re-renders rather than re-entering.
 
-import m from "mithril-runtime";
-import { redraw } from "mithril-lynx/mount-redraw";
+import m from "mithril";
+import shim from "mithril-lynx-v1";
 import { cx } from "../internal/cx.js";
 import { delayFrames } from "../internal/frames.js";
-import { renderChildren } from "../internal/press-v2.js";
+import { renderChildren } from "../internal/press-legacy.js";
 import { createScope } from "../scope/scope.js";
 
 export const PresenceState = {
@@ -99,11 +99,10 @@ function makeController(s) {
 	// the next pass observes it.
 	// Anything the app hands us — onOpen/onClose — runs deferred for the same
 	// reason: these fire from the effects, i.e. inside the render pass, and an
-	// app callback will very reasonably mutate state expecting a redraw.
-	// Calling mithril-lynx/mount-redraw's redraw() there throws "Node is
-	// currently being rendered to and thus is locked", which would make the
-	// component unusable in the most obvious way anyone would use it.
-	// Deferring is the library's job, not the caller's.
+	// app callback will very reasonably call shim.redraw(). Calling it there
+	// throws "Node is currently being rendered to and thus is locked", which
+	// would make the component unusable in the most obvious way anyone would
+	// use it. Deferring is the library's job, not the caller's.
 	const defer = (fn) => {
 		if (typeof fn !== "function") return;
 		delayFrames(1, fn);
@@ -114,7 +113,7 @@ function makeController(s) {
 		s.redrawScheduled = true;
 		delayFrames(1, () => {
 			s.redrawScheduled = false;
-			redraw();
+			shim.redraw();
 		});
 	};
 

@@ -140,7 +140,7 @@ componente sirve igual de bien para código v1 o v2.
 Migrados y verdes: `scope`, `button`, `switch`, `checkbox`, `radio-group`,
 `layout`, `dialog`, `presence`, `lazy-component` (ver commits de esta
 sesión en ambos repos). Un harness de test nuevo
-(`test/v2-harness.ts`) monta cada componente contra el `renderApp()` +
+(`test/harness.ts`) monta cada componente contra el `renderApp()` +
 `createPatchApplier` REALES de v2 (no un mock) — mismo nivel de rigor que
 v1 siempre exigió en este proyecto.
 
@@ -178,7 +178,7 @@ ambos; un test/consumidor que lea el estilo aplicado de vuelta tiene que
 saber cuál convención está mirando. No se tocó v2 para "arreglar" esto —
 dash-case es lo que su propio diseño ya documentaba como intencional.
 
-**`internal/press.js` se bifurcó**: `press-v2.js` es la versión sin
+**`internal/press.js` se bifurcó**: `press.js` es la versión sin
 `shim.redraw()` explícito (v2 auto-redibuja después de cualquier evento;
 v1 no, por eso v1 SÍ necesita el redraw manual ahí). `press.js` (v1) sigue
 sirviendo a los componentes todavía no migrados (`sheet.js` por ahora).
@@ -207,7 +207,7 @@ problema es específicamente cualquier función que LLAME a un mecanismo
 de redraw hardcodeado a una versión — no la mezcla de módulos en sí.
 
 **Arreglado bifurcando SOLO `presence.js`** (no `button.js`/`scope.js`,
-que no lo necesitan): `presence-v2.js` es la copia real usada por
+que no lo necesitan): `presence.js` es la copia real usada por
 `dialog.js` (el único consumidor migrado), con `mithril-runtime` +
 `mount-redraw` + `press-v2.js`. `presence.js` volvió a ser exactamente
 el original v1 (real `mithril` + `shim.redraw()` vía el alias

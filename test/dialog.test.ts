@@ -8,7 +8,7 @@ import {
 	DialogTrigger,
 	DialogView,
 } from "../src/dialog/dialog.js";
-import { mount, fire, styleOf, type Mounted, type V2Node } from "./v2-harness.js";
+import { mount, fire, styleOf, type Mounted, type TestNode } from "./harness.js";
 
 // Dialog's whole animation lifecycle rides on Presence (see presence.test.ts
 // for why: frame-driven, no Lynx frame pipeline in jsdom, so these tests
@@ -33,16 +33,16 @@ const LEAVE_SETTLE = 44;
  * before a real sibling is reached — including at DialogRoot's own top
  * level once DialogView stops rendering a real node (closed, unmounted).
  * "Nothing is here" therefore shows up as a marker, never as null. Style
- * has no readback on a fake-dom node itself (see v2-harness.ts's styleOf
+ * has no readback on a fake-dom node itself (see harness.ts's styleOf
  * doc) — this reads it off the real applied PAPI style, same as every
  * other style assertion in this migrated suite.
  */
-function isMarker(app: Mounted, node: V2Node | null): boolean {
+function isMarker(app: Mounted, node: TestNode | null): boolean {
 	return node != null && styleOf(app, node).display === "none";
 }
 
 /** The real next sibling, skipping exactly one trailing marker if present. */
-function next(app: Mounted, node: V2Node): V2Node | null {
+function next(app: Mounted, node: TestNode): TestNode | null {
 	const n = node.nextSibling;
 	return isMarker(app, n) ? n!.nextSibling : n;
 }

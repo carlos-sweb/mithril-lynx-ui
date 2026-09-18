@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril-runtime";
 import { Switch, SwitchThumb, SwitchTrack } from "../src/switch/switch.js";
-import { mount, fire } from "./v2-harness.js";
+import { mount, fire } from "./harness.js";
 
 // Asserts the behaviour contract ported from @lynx-js/lynx-ui-switch:
 // controlled vs uncontrolled, the ui-active/ui-checked/ui-disabled classes

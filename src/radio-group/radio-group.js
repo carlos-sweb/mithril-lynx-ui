@@ -16,7 +16,7 @@
 import m from "mithril-runtime";
 import { Button } from "../button/button.js";
 import { cx } from "../internal/cx.js";
-import { renderChildren } from "../internal/press-v2.js";
+import { renderChildren } from "../internal/press.js";
 import { createScope } from "../scope/scope.js";
 
 const groupScope = createScope();

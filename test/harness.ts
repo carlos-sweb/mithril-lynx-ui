@@ -1,12 +1,12 @@
-// test/v2-harness.ts
+// test/harness.ts
 //
-// Shared mount helper for the components migrated to mithril-lynx v2 (see
-// .omo/plans/migrate-to-mithril-lynx-v2.md). Mirrors v1's own
+// Shared mount helper for the components migrated off legacy mithril-lynx
+// (see .omo/plans/migrate-off-legacy-mithril-lynx.md). Mirrors the legacy
 // shim.renderToPage()-based test harness's ergonomics (mount/fire/textOf)
 // as closely as the two architectures allow, so a migrated component's test
-// body stays close to its v1 original — only the setup functions differ.
+// body stays close to its legacy original — only the setup functions differ.
 //
-// Real, not mocked: renderApp() runs the actual v2 background-thread render
+// Real, not mocked: renderApp() runs the actual background-thread render
 // against the actual fake-dom (src/fake-dom.js); the resulting ops are
 // replayed by the actual createPatchApplier onto REAL Element PAPI nodes via
 // @lynx-js/testing-environment (mithril-lynx/testing) — same two-thread
@@ -19,11 +19,11 @@
 import { renderApp } from "mithril-lynx/background";
 import { createPatchApplier } from "mithril-lynx/testing";
 
-export interface V2Node {
+export interface TestNode {
 	tag: string;
 	className: string;
-	firstChild: V2Node | null;
-	nextSibling: V2Node | null;
+	firstChild: TestNode | null;
+	nextSibling: TestNode | null;
 	/** The background-thread virtual-backend id — internal, but needed by
 	 * styleOf() below to find the real PAPI handle this node's ops applied
 	 * to (see applier.getHandle()). */
@@ -33,7 +33,7 @@ export interface V2Node {
 
 export interface Mounted {
 	/** The single top-level node `root()` returned. */
-	root: V2Node;
+	root: TestNode;
 	/** Forces another render pass (mithril-lynx's own `redraw`), e.g. after
 	 * a state change made outside a dispatched event. */
 	redraw(): void;
@@ -71,7 +71,7 @@ export function mount(root: () => unknown): Mounted {
 		// read the CURRENT top node, matching what root.firstChild gave v1
 		// tests every time they re-read it fresh after a shimModule.redraw().
 		get root() {
-			return (app.document as any).firstChild as V2Node;
+			return (app.document as any).firstChild as TestNode;
 		},
 		redraw: app.redraw,
 		applier,
@@ -80,13 +80,13 @@ export function mount(root: () => unknown): Mounted {
 
 /** Fires a native-shaped event on a fake-dom node, same way a forwarded
  * native event would (see channel.js's onEventFromMainThread). */
-export function fire(node: V2Node, type: string, payload: Record<string, unknown> = {}) {
+export function fire(node: TestNode, type: string, payload: Record<string, unknown> = {}) {
 	node.dispatchEvent({ type, currentTarget: node, ...payload });
 }
 
 /** Concatenates every LynxText descendant's value, depth-first — the same
  * shape v1 tests' `.textContent` read gave them. */
-export function textOf(node: V2Node | null): string {
+export function textOf(node: TestNode | null): string {
 	if (node == null) return "";
 	let out = "";
 	let child = node.firstChild as any;
@@ -99,7 +99,7 @@ export function textOf(node: V2Node | null): string {
 }
 
 /** Depth-first search for the first descendant (or `node` itself) matching `predicate`. */
-export function find(node: V2Node | null, predicate: (n: V2Node) => boolean): V2Node | null {
+export function find(node: TestNode | null, predicate: (n: TestNode) => boolean): TestNode | null {
 	if (node == null) return null;
 	if (predicate(node)) return node;
 	let child = node.firstChild;
@@ -112,8 +112,8 @@ export function find(node: V2Node | null, predicate: (n: V2Node) => boolean): V2
 }
 
 /** All direct children of `node`, in order — for asserting on a list/count. */
-export function children(node: V2Node | null): V2Node[] {
-	const out: V2Node[] = [];
+export function children(node: TestNode | null): TestNode[] {
+	const out: TestNode[] = [];
 	let child = node?.firstChild ?? null;
 	while (child != null) {
 		out.push(child);
@@ -129,16 +129,16 @@ export function children(node: V2Node | null): V2Node[] {
  * v1's own tests did, off the global PAPI-call recording
  * mithril-lynx-v1's testing polyfill installs (it wraps every
  * `__`-prefixed function regardless of which package actually called it,
- * so `__AddInlineStyle` calls made by v2's apply-patch.js are captured
+ * so `__AddInlineStyle` calls made by mithril-lynx's apply-patch.js are captured
  * here too, real call args, not simulated).
  */
-export function attrOf(app: Mounted, node: V2Node, name: string): unknown {
+export function attrOf(app: Mounted, node: TestNode, name: string): unknown {
 	const handle = app.applier.getHandle(node._id);
 	const calls = (globalThis as any).__papiCalls as { fn: string; args: unknown[] }[];
 	return calls.filter((c) => c.fn === "__SetAttribute" && c.args[0] === handle && c.args[1] === name).at(-1)?.args[2];
 }
 
-export function styleOf(app: Mounted, node: V2Node): Record<string, unknown> {
+export function styleOf(app: Mounted, node: TestNode): Record<string, unknown> {
 	const handle = app.applier.getHandle(node._id);
 	const calls = (globalThis as any).__papiCalls as { fn: string; args: unknown[] }[];
 	const out: Record<string, unknown> = {};

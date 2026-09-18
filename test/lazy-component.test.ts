@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril-runtime";
 import { LazyComponent } from "../src/lazy-component/lazy-component.js";
-import { mount, fire, textOf, styleOf, attrOf } from "./v2-harness.js";
+import { mount, fire, textOf, styleOf, attrOf } from "./harness.js";
 
 // LazyComponent's real mechanism is a native exposure-tracking system,
 // delivered here as ordinary per-node bind events (onuiappear/onuidisappear)

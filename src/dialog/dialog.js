@@ -38,9 +38,9 @@ import m from "mithril-runtime";
 import { redraw } from "mithril-lynx/mount-redraw";
 import { Button } from "../button/button.js";
 import { cx } from "../internal/cx.js";
-import { renderChildren } from "../internal/press-v2.js";
+import { renderChildren } from "../internal/press.js";
 import { nativeBool } from "../internal/native.js";
-import { PresenceState, Presence, resolveAnimationStatus, usePresence } from "../presence/presence-v2.js";
+import { PresenceState, Presence, resolveAnimationStatus, usePresence } from "../presence/presence.js";
 import { createScope } from "../scope/scope.js";
 
 const dialogScope = createScope();

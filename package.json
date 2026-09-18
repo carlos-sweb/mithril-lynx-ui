@@ -136,7 +136,7 @@
     "jsdom": "^28.0.0",
     "mithril": "2.3.8",
     "mithril-lynx-v1": "npm:mithril-lynx@^0.0.6",
-    "mithril-lynx": "file:../mithril-lynx-v2",
+    "mithril-lynx": "file:../mithril-lynx",
     "mithril-runtime": "^1.1.0",
     "typescript": "~6.0.3"
   }
