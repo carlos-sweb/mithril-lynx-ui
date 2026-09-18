@@ -119,24 +119,29 @@ return a fixed track rect (manual 3), and reading `__SetInlineStyles` to
 verify the final written position (manual 2):
 
 ```ts
-globalThis.__InvokeUIMethod = (_node, method, params, callback) => {
+globalThis.__nodesRefInvokeHandler = (_element, method, params, callback) => {
 	if (method === "boundingClientRect") callback({ code: 0, data: { left: 0, top: 0, width: 200, height: 20 } });
-	else callback({ code: 0, data: {} });
+	else callback({ code: 0, data: { method, params } });
 };
 
-fireTouchStart(thumbNode, { clientX: 0 });
-fireTouchMove(thumbNode, { clientX: 100 }); // halfway through a 200px track
-await flushMicrotasks();
+fire(rootView, "touchstart", { detail: { x: 0 } });
+await settle();
+fire(rootView, "touchmove", { detail: { x: 100 } }); // halfway through a 200px track
 
-const write = papiCalls().filter((c) => c.fn === "__SetInlineStyles").at(-1);
-expect(write.args[1].left).toBe("50%");
+expect(propOf(app, thumbNode, "left")).toBe("50%");
 ```
 
 Given the case study, the specific thing worth testing: that a `touchmove`
-arriving BEFORE the measurement resolves (for example, firing the event
-without waiting for the intervening microtask) still ends up reflected once
-the measurement lands — i.e. that `pendingMoveX`/`flushPendingMoveX`
-actually don't drop the move.
+arriving BEFORE the measurement resolves (no `await settle()` between the
+two `fire()` calls) still ends up reflected once the measurement lands —
+i.e. that `pendingMoveX`/`flushPendingMoveX` actually don't drop the move.
+Porting `slider.js` needed the same `.data` → direct-value fix manual 1
+flags (its own `measureBounds()` read `res.data`, same as `popover.js`
+did) — applied proactively here, already knowing to look for it. It did
+NOT need manual 3's `redraw()`-margin fix: this component writes position
+straight to the DOM on every move (manual 2's pattern) rather than
+depending on a redraw to make a measurement's result visible, so there was
+no extra async hop for a test to wait out.
 
 ## Where this pattern is used
 

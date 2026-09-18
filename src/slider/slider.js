@@ -23,9 +23,10 @@
 //
 // Track width isn't known synchronously on the first touch, so bounds are
 // measured async (the same NodesRef.invoke("boundingClientRect", ...) call
-// mithril-lynx/element's wrapElement().invoke() already wraps) and any move
-// that arrives before that resolves is queued and replayed once it does —
-// ported as-is, this queuing is genuinely necessary, not paranoia.
+// internal/native-ref.js's createRef().invoke() wraps — see
+// docs/native-papi/papi-03-async-geometry-measurement.md) and any move that
+// arrives before that resolves is queued and replayed once it does — ported
+// as-is, this queuing is genuinely necessary, not paranoia.
 //
 // Position is written straight to the thumb/indicator nodes on every move
 // (a redraw per touchmove would be wasted work — the same call this project
@@ -34,9 +35,9 @@
 // from any cause never clobbers it — the exact bug Draggable's port hit on
 // device, avoided here from the start instead of found the same way twice.
 
-import m from "mithril";
-import shim from "mithril-lynx-v1";
-import { wrapElement } from "mithril-lynx-v1/element";
+import m from "mithril-runtime";
+import { redraw } from "mithril-lynx/mount-redraw";
+import { ensureId, createRef } from "../internal/native-ref.js";
 import { cx } from "../internal/cx.js";
 import {
 	areSliderValuesEqual,
@@ -129,14 +130,14 @@ export const SliderRoot = {
 			if (!syncCurrentValue(next)) return;
 
 			if (typeof vnode.attrs.onValueChange === "function") vnode.attrs.onValueChange(cloneSliderValue(next), source);
-			shim.redraw();
+			redraw();
 		};
 
 		const setRenderedInteraction = (active, activeThumbIndex) => {
 			if (s.renderedActive === active && s.renderedActiveThumbIndex === activeThumbIndex) return;
 			s.renderedActive = active;
 			s.renderedActiveThumbIndex = activeThumbIndex;
-			shim.redraw();
+			redraw();
 		};
 
 		const resolveNextDrag = (targetValue) => {
@@ -207,7 +208,9 @@ export const SliderRoot = {
 				.invoke("boundingClientRect", { relativeTo: "" })
 				.then((res) => {
 					s.bounds.measuring = false;
-					const data = (res && res.data) || {};
+					// internal/native-ref.js's invoke() resolves with the
+					// unwrapped value already — see docs/native-papi/papi-01-imperative-refs.md.
+					const data = res || {};
 					const width = typeof data.width === "number" ? data.width : Number.NaN;
 					const left = typeof data.left === "number" ? data.left : Number.NaN;
 
@@ -373,12 +376,16 @@ export const SliderRoot = {
 };
 
 export const SliderTrack = {
+	oninit(vnode) {
+		vnode.state.refId = ensureId(null);
+	},
+
 	// useScope() is only valid from view() — it's popped again (see
 	// scope.js's header) before oncreate's deferred queue flushes. So view()
 	// stashes the api on this vnode's own state, and oncreate reads it back
 	// from there instead of asking the scope a second time, too late.
 	oncreate(vnode) {
-		vnode.state.api.registerTrack(wrapElement(vnode.dom));
+		vnode.state.api.registerTrack(createRef(vnode.state.refId));
 	},
 
 	view(vnode) {
@@ -387,6 +394,7 @@ export const SliderTrack = {
 		return m(
 			"view",
 			{
+				id: vnode.state.refId,
 				style: {
 					position: "relative",
 					width: "100%",
@@ -406,8 +414,12 @@ export const SliderTrack = {
 };
 
 export const SliderThumb = {
+	oninit(vnode) {
+		vnode.state.refId = ensureId(null);
+	},
+
 	oncreate(vnode) {
-		vnode.state.api.registerThumb(vnode.attrs.index || 0, wrapElement(vnode.dom));
+		vnode.state.api.registerThumb(vnode.attrs.index || 0, createRef(vnode.state.refId));
 	},
 
 	view(vnode) {
@@ -419,6 +431,7 @@ export const SliderThumb = {
 		return m(
 			"view",
 			{
+				id: vnode.state.refId,
 				style: {
 					position: "absolute",
 					top: "50%",
@@ -443,8 +456,12 @@ export const SliderThumb = {
 };
 
 export const SliderIndicator = {
+	oninit(vnode) {
+		vnode.state.refId = ensureId(null);
+	},
+
 	oncreate(vnode) {
-		vnode.state.api.registerIndicator(wrapElement(vnode.dom));
+		vnode.state.api.registerIndicator(createRef(vnode.state.refId));
 	},
 
 	view(vnode) {
@@ -455,6 +472,7 @@ export const SliderIndicator = {
 		return m(
 			"view",
 			{
+				id: vnode.state.refId,
 				style: Object.assign(
 					{ position: "absolute", top: "0px", bottom: "0px", overflow: "visible" },
 					api.enableRTL ? { right: `${offset * 100}%` } : { left: `${offset * 100}%` },
