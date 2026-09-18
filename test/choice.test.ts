@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
 import shim from "mithril-lynx";
-import { Checkbox, CheckboxIndicator } from "../checkbox.js";
-import { Radio, RadioGroup, RadioIndicator } from "../radio-group.js";
+import { Checkbox, CheckboxIndicator } from "../src/checkbox/checkbox.js";
+import { Radio, RadioGroup, RadioIndicator } from "../src/radio-group/radio-group.js";
 
 // Both components are built ON button.js, so these tests focus on what they
 // add over it: checked/indeterminate semantics, group coordination, and the

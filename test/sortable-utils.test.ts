@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@rstest/core";
-import { createSwapTracker, findSwapTarget, sortKeyArray, updateSwapTracking } from "../internal/sortable-utils.js";
+import { createSwapTracker, findSwapTarget, sortKeyArray, updateSwapTracking } from "../src/sortable/sortable-utils.js";
 
 const KEYS = ["a", "b", "c", "d"];
 const SIZES = { a: 100, b: 100, c: 100, d: 100 };

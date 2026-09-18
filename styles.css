@@ -20,21 +20,21 @@
    OPT-IN at the call site (nothing applies unless you ask for the class,
    e.g. class: "ui-button"), because lynx-ui itself is headless and an app
    already styling lynx-ui components should be able to keep its own CSS. */
-@import "./css/button.css";
-@import "./css/switch.css";
-@import "./css/choice.css";
-@import "./css/presence.css";
-@import "./css/input.css";
-@import "./css/draggable.css";
-@import "./css/slider.css";
-@import "./css/swipe-action.css";
-@import "./css/sortable.css";
-@import "./css/lazy-component.css";
-@import "./css/dialog.css";
-@import "./css/input-otp.css";
-@import "./css/feed-list.css";
-@import "./css/sheet.css";
-@import "./css/popover.css";
-@import "./css/swiper.css";
-@import "./css/layout.css";
-@import "./css/drawer.css";
+@import "./src/button/button.css";
+@import "./src/switch/switch.css";
+@import "./src/internal/choice.css";
+@import "./src/presence/presence.css";
+@import "./src/input/input.css";
+@import "./src/draggable/draggable.css";
+@import "./src/slider/slider.css";
+@import "./src/swipe-action/swipe-action.css";
+@import "./src/sortable/sortable.css";
+@import "./src/lazy-component/lazy-component.css";
+@import "./src/dialog/dialog.css";
+@import "./src/input-otp/input-otp.css";
+@import "./src/feed-list/feed-list.css";
+@import "./src/sheet/sheet.css";
+@import "./src/popover/popover.css";
+@import "./src/swiper/swiper.css";
+@import "./src/layout/layout.css";
+@import "./src/drawer/drawer.css";

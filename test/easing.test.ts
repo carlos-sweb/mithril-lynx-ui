@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@rstest/core";
-import { cubicBezier, easeInOut } from "../internal/easing.js";
+import { cubicBezier, easeInOut } from "../src/swipe-action/easing.js";
 
 describe("internal/easing.js", () => {
   it("easeInOut anchors both endpoints", () => {

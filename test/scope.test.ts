@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
 import shim from "mithril-lynx";
-import { createScope } from "../scope.js";
+import { createScope } from "../src/scope/scope.js";
 
 // Exercised the same way mithril-lynx core's own navigation.test.ts tests a
 // real component tree: shim.renderToPage() against a real page wrapper from

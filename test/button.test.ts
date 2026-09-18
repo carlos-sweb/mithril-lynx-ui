@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
 import shim from "mithril-lynx";
-import { Button } from "../button.js";
+import { Button } from "../src/button/button.js";
 
 // Asserts the behaviour contract ported from @lynx-js/lynx-ui-button: the
 // exact state classes (that's what makes lynx-ui CSS render identically

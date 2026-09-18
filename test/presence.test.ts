@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
 import shim from "mithril-lynx";
-import { Presence, PresenceContent, PresenceState, resolveAnimationStatus } from "../presence.js";
+import { Presence, PresenceContent, PresenceState, resolveAnimationStatus } from "../src/presence/presence.js";
 
 // The state machine is frame-driven, and jsdom has no Lynx frame pipeline —
 // internal/frames.js falls back to setTimeout there. So these tests drive the

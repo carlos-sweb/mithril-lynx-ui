@@ -10,7 +10,7 @@ import {
   resolveSliderDrag,
   snapToStep,
   updateSliderValue,
-} from "../internal/slider-utils.js";
+} from "../src/slider/slider-utils.js";
 
 describe("slider-utils.js", () => {
   it("snapToStep rounds to the nearest multiple", () => {

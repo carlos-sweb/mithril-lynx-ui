@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
 import shim from "mithril-lynx";
-import { LazyComponent } from "../lazy-component.js";
+import { LazyComponent } from "../src/lazy-component/lazy-component.js";
 
 // LazyComponent's real mechanism is a native exposure-tracking system,
 // delivered here as ordinary per-node bind events (onuiappear/onuidisappear)

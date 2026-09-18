@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
 import shim from "mithril-lynx";
-import { Switch, SwitchThumb, SwitchTrack } from "../switch.js";
+import { Switch, SwitchThumb, SwitchTrack } from "../src/switch/switch.js";
 
 // Asserts the behaviour contract ported from @lynx-js/lynx-ui-switch:
 // controlled vs uncontrolled, the ui-active/ui-checked/ui-disabled classes

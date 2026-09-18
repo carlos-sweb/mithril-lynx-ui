@@ -9,7 +9,7 @@ import {
   PopoverPositioner,
   PopoverRoot,
   PopoverTrigger,
-} from "../popover.js";
+} from "../src/popover/popover.js";
 
 // Popover's presence lifecycle is a single shared Presence (not Dialog's own
 // N-child group), but rides the same frame-driven state machine — see

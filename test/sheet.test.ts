@@ -9,7 +9,7 @@ import {
   SheetRoot,
   SheetTrigger,
   SheetView,
-} from "../sheet.js";
+} from "../src/sheet/sheet.js";
 
 // Sheet's whole animation lifecycle rides on Presence, same as Dialog's —
 // see dialog.test.ts/presence.test.ts for why these tests fire the native

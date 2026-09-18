@@ -8,7 +8,7 @@ import {
   DialogRoot,
   DialogTrigger,
   DialogView,
-} from "../dialog.js";
+} from "../src/dialog/dialog.js";
 
 // Dialog's whole animation lifecycle rides on Presence (see presence.test.ts
 // for why: frame-driven, no Lynx frame pipeline in jsdom, so these tests

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
 import shim from "mithril-lynx";
-import { SwipeAction } from "../swipe-action.js";
+import { SwipeAction } from "../src/swipe-action/swipe-action.js";
 
 // swipe-action.js registers a real native gesture (mithril-lynx/gesture's
 // createGesture(), type "native") rather than plain on* touch listeners —

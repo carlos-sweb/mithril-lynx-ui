@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
 import shim from "mithril-lynx";
-import { InputOTP, InputOTPSlot, useInputOTPContext } from "../input-otp.js";
+import { InputOTP, InputOTPSlot, useInputOTPContext } from "../src/input-otp/input-otp.js";
 
 const shimModule = ((shim as any).default ?? shim) as {
   renderToPage(pageElement: unknown, vnode: unknown): unknown;

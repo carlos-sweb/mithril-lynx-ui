@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
 import shim from "mithril-lynx";
-import { List } from "../list.js";
+import { List } from "../src/list/list.js";
 
 // createList() itself (mithril-lynx core) already has its own thorough
 // device-verified test suite — these tests focus on what THIS declarative

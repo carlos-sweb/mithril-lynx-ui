@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
 import shim from "mithril-lynx";
-import { FeedList } from "../feed-list.js";
+import { FeedList } from "../src/feed-list/feed-list.js";
 
 // FeedList here is List (already its own thoroughly-tested wrapper around
 // core's createList()) plus two additions: a native <refresh>/<refresh-header>

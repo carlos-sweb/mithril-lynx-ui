@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
 import shim from "mithril-lynx";
-import { Input, TextArea } from "../input.js";
+import { Input, TextArea } from "../src/input/input.js";
 
 // What's worth asserting here is the native contract: the attribute names and
 // value shapes that reach the element, the event payload unwrapping (Lynx

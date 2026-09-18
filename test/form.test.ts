@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
 import shim from "mithril-lynx";
-import { FormField, FormRoot, FormSubmitButton, useForm } from "../form.js";
-import { Radio } from "../radio-group.js";
+import { FormField, FormRoot, FormSubmitButton, useForm } from "../src/form/form.js";
+import { Radio } from "../src/radio-group/radio-group.js";
 
 // FormField delegates entirely to the already-tested Input/Checkbox/Switch/
 // RadioGroup — button.test.ts, choice.test.ts and input.test.ts already

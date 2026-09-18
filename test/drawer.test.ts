@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
 import shim from "mithril-lynx";
-import { DrawerBackdrop, DrawerClose, DrawerContent, DrawerRoot, DrawerTrigger, DrawerView } from "../drawer.js";
+import { DrawerBackdrop, DrawerClose, DrawerContent, DrawerRoot, DrawerTrigger, DrawerView } from "../src/drawer/drawer.js";
 
 // drawer.js is a thin wrapper over sheet.js's own components (see its own
 // header) — sheet.test.ts already covers the shared engine (presence

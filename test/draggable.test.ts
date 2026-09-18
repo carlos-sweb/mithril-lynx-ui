@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
 import shim from "mithril-lynx";
-import { Draggable } from "../draggable.js";
+import { Draggable } from "../src/draggable/draggable.js";
 
 // The drag position is written straight to the node rather than through a
 // redraw (a diff per touchmove would be wasted work), so these assert on the

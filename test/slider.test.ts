@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
 import shim from "mithril-lynx";
-import { SliderIndicator, SliderRoot, SliderThumb, SliderTrack } from "../slider.js";
+import { SliderIndicator, SliderRoot, SliderThumb, SliderTrack } from "../src/slider/slider.js";
 
 // The default testing-environment polyfill for __InvokeUIMethod just echoes
 // the call back (see mithril-lynx/testing.js) rather than synthesizing a

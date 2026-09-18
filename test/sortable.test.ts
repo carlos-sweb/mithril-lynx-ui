@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril";
 import shim from "mithril-lynx";
-import { SortableItem, SortableRoot } from "../sortable.js";
+import { SortableItem, SortableRoot } from "../src/sortable/sortable.js";
 
 // SortableItem is built on Draggable (real <view>, ontouchstart/move/end
 // listeners via `fire`, same helpers draggable.test.ts already established)

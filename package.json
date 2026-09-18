@@ -15,149 +15,102 @@
   "exports": {
     "./styles.css": "./styles.css",
     "./scope": {
-      "types": "./scope.d.ts",
-      "default": "./scope.js"
+      "types": "./src/scope/scope.d.ts",
+      "default": "./src/scope/scope.js"
     },
     "./button": {
-      "types": "./button.d.ts",
-      "default": "./button.js"
+      "types": "./src/button/button.d.ts",
+      "default": "./src/button/button.js"
     },
     "./switch": {
-      "types": "./switch.d.ts",
-      "default": "./switch.js"
+      "types": "./src/switch/switch.d.ts",
+      "default": "./src/switch/switch.js"
     },
     "./checkbox": {
-      "types": "./checkbox.d.ts",
-      "default": "./checkbox.js"
+      "types": "./src/checkbox/checkbox.d.ts",
+      "default": "./src/checkbox/checkbox.js"
     },
     "./radio-group": {
-      "types": "./radio-group.d.ts",
-      "default": "./radio-group.js"
+      "types": "./src/radio-group/radio-group.d.ts",
+      "default": "./src/radio-group/radio-group.js"
     },
     "./native": {
-      "types": "./internal/native.d.ts",
-      "default": "./internal/native.js"
+      "types": "./src/internal/native.d.ts",
+      "default": "./src/internal/native.js"
     },
     "./presence": {
-      "types": "./presence.d.ts",
-      "default": "./presence.js"
+      "types": "./src/presence/presence.d.ts",
+      "default": "./src/presence/presence.js"
     },
     "./input": {
-      "types": "./input.d.ts",
-      "default": "./input.js"
+      "types": "./src/input/input.d.ts",
+      "default": "./src/input/input.js"
     },
     "./draggable": {
-      "types": "./draggable.d.ts",
-      "default": "./draggable.js"
+      "types": "./src/draggable/draggable.d.ts",
+      "default": "./src/draggable/draggable.js"
     },
     "./slider": {
-      "types": "./slider.d.ts",
-      "default": "./slider.js"
+      "types": "./src/slider/slider.d.ts",
+      "default": "./src/slider/slider.js"
     },
     "./swipe-action": {
-      "types": "./swipe-action.d.ts",
-      "default": "./swipe-action.js"
+      "types": "./src/swipe-action/swipe-action.d.ts",
+      "default": "./src/swipe-action/swipe-action.js"
     },
     "./sortable": {
-      "types": "./sortable.d.ts",
-      "default": "./sortable.js"
+      "types": "./src/sortable/sortable.d.ts",
+      "default": "./src/sortable/sortable.js"
     },
     "./lazy-component": {
-      "types": "./lazy-component.d.ts",
-      "default": "./lazy-component.js"
+      "types": "./src/lazy-component/lazy-component.d.ts",
+      "default": "./src/lazy-component/lazy-component.js"
     },
     "./form": {
-      "types": "./form.d.ts",
-      "default": "./form.js"
+      "types": "./src/form/form.d.ts",
+      "default": "./src/form/form.js"
     },
     "./dialog": {
-      "types": "./dialog.d.ts",
-      "default": "./dialog.js"
+      "types": "./src/dialog/dialog.d.ts",
+      "default": "./src/dialog/dialog.js"
     },
     "./input-otp": {
-      "types": "./input-otp.d.ts",
-      "default": "./input-otp.js"
+      "types": "./src/input-otp/input-otp.d.ts",
+      "default": "./src/input-otp/input-otp.js"
     },
     "./list": {
-      "types": "./list.d.ts",
-      "default": "./list.js"
+      "types": "./src/list/list.d.ts",
+      "default": "./src/list/list.js"
     },
     "./feed-list": {
-      "types": "./feed-list.d.ts",
-      "default": "./feed-list.js"
+      "types": "./src/feed-list/feed-list.d.ts",
+      "default": "./src/feed-list/feed-list.js"
     },
     "./sheet": {
-      "types": "./sheet.d.ts",
-      "default": "./sheet.js"
+      "types": "./src/sheet/sheet.d.ts",
+      "default": "./src/sheet/sheet.js"
     },
     "./popover": {
-      "types": "./popover.d.ts",
-      "default": "./popover.js"
+      "types": "./src/popover/popover.d.ts",
+      "default": "./src/popover/popover.js"
     },
     "./swiper": {
-      "types": "./swiper.d.ts",
-      "default": "./swiper.js"
+      "types": "./src/swiper/swiper.d.ts",
+      "default": "./src/swiper/swiper.js"
     },
     "./layout": {
-      "types": "./layout.d.ts",
-      "default": "./layout.js"
+      "types": "./src/layout/layout.d.ts",
+      "default": "./src/layout/layout.js"
     },
     "./drawer": {
-      "types": "./drawer.d.ts",
-      "default": "./drawer.js"
+      "types": "./src/drawer/drawer.d.ts",
+      "default": "./src/drawer/drawer.js"
     }
   },
   "files": [
-    "css",
-    "internal",
     "styles.css",
-    "scope.js",
-    "scope.d.ts",
-    "button.js",
-    "button.d.ts",
-    "switch.js",
-    "switch.d.ts",
-    "checkbox.js",
-    "checkbox.d.ts",
-    "radio-group.js",
-    "radio-group.d.ts",
-    "NOTICE",
-    "presence.js",
-    "presence.d.ts",
-    "input.js",
-    "input.d.ts",
-    "draggable.js",
-    "draggable.d.ts",
-    "slider.js",
-    "slider.d.ts",
-    "internal/slider-utils.js",
-    "swipe-action.js",
-    "swipe-action.d.ts",
-    "sortable.js",
-    "sortable.d.ts",
-    "internal/sortable-utils.js",
-    "lazy-component.js",
-    "lazy-component.d.ts",
-    "form.js",
-    "form.d.ts",
-    "dialog.js",
-    "dialog.d.ts",
-    "input-otp.js",
-    "input-otp.d.ts",
-    "list.js",
-    "list.d.ts",
-    "feed-list.js",
-    "feed-list.d.ts",
-    "sheet.js",
-    "sheet.d.ts",
-    "popover.js",
-    "popover.d.ts",
-    "swiper.js",
-    "swiper.d.ts",
-    "layout.js",
-    "layout.d.ts",
-    "drawer.js",
-    "drawer.d.ts"
+    "src",
+    "NOTICE"
   ],
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
