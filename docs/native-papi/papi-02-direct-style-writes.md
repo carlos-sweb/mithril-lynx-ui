@@ -188,6 +188,24 @@ or is purely an artifact of how the testing environment happens to
 simulate `setNativeProps()`, is unconfirmed — flagged the same way the
 exact expected shape of `setNativeProps`'s argument object already was.
 
+**A real timing gap, found porting `swiper.js`.** Every component up to
+this point only ever wrote imperatively in response to a LATER event
+(a touchmove, well after mount) — `swiper.js` is the first to write its
+initial value synchronously, inside `oncreate` itself
+(`setTransform(s, s.currentTransform, false)`, to seed the track's
+position). That crashed immediately: `oncreate` can run BEFORE this same
+render's own patch — including the very `id` attribute the write needs to
+select by — has actually been applied on the main thread. Calling
+`lynx.createSelectorQuery().select(...)` for an id that doesn't exist yet
+throws synchronously (confirmed real, not a test artifact — the real
+`NodesRef.select()` throws the same way). `createNativeWriter()` now
+catches that and retries a few times, a microtask apart — by the next
+microtask the patch reliably has landed, the same ordering async
+`invoke()` calls already relied on elsewhere. Any component writing
+imperatively from `oncreate` itself (not from a later event handler) needs
+to go through this retry path; one that only ever writes in response to a
+real, later event never hits it.
+
 ## How to test this without a device
 
 `lynx.createSelectorQuery()` needs no mock of its own — see manual 1's "how

@@ -86,12 +86,32 @@ export function createNativeWriter(id) {
 	let pending = null;
 	let sending = false;
 
-	function flush() {
+	function flush(attempt = 0) {
 		if (sending || pending == null) return;
 		sending = true;
 		const props = pending;
 		pending = null;
-		selectorQuery(id).setNativeProps(props).exec();
+		try {
+			selectorQuery(id).setNativeProps(props).exec();
+		} catch (err) {
+			// A real, confirmed timing gap: the target element can not exist
+			// on the main thread YET when this fires — a write issued
+			// synchronously from oncreate can run before this same commit's
+			// own patch (including this node's `id` attribute) has actually
+			// been applied there. Retry a few times, a microtask apart —
+			// by then the patch reliably has landed, the same ordering
+			// async invoke() calls already rely on elsewhere. Found porting
+			// swiper.js, whose oncreate writes its initial transform
+			// synchronously, unlike every earlier component here (which
+			// only ever wrote in response to a later event).
+			sending = false;
+			if (attempt < 5) {
+				pending = Object.assign(props, pending || {});
+				Promise.resolve().then(() => flush(attempt + 1));
+				return;
+			}
+			throw err;
+		}
 		sending = false;
 		if (pending != null) flush(); // a new write arrived while this one was going out
 	}

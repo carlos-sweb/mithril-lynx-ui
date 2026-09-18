@@ -52,10 +52,16 @@
 //
 // The swipe gesture itself is NOT built on plain on*touch listeners —
 // same reasoning, and the exact same primitive, as swipe-action.js's own
-// horizontal drag: a real native gesture (mithril-lynx/gesture's
-// createGesture(), type "native") with axis-lock-on-first-move, so a
-// genuine vertical scroll inside an ancestor <scroll-view> still passes
-// through instead of being swallowed. Settling to the target index uses a
+// horizontal drag: a real native gesture (internal/gesture.js's
+// registerGesture(), see docs/native-papi/papi-05-native-gestures.md) with
+// arenaPolicy {mode:"axis-lock", axis:"horizontal", referenceMoves:1} —
+// unlike swipe-action.js's referenceMoves:0, the axis decision here needs
+// the FIRST move as its reference point and decides on the SECOND, since
+// the first move alone has no delta yet (matches this file's own original
+// onTouchesMove shape, preserved below purely for this component's own UI
+// state now, not the arena decision) — so a genuine vertical scroll inside
+// an ancestor <scroll-view> still passes through instead of being
+// swallowed. Settling to the target index uses a
 // plain CSS transition (`transform Nms ease-out`), not a custom easing
 // loop — sheet.js's own drag-to-dismiss already established that a snap
 // doesn't need bespoke animation code when the platform's own transition
@@ -89,12 +95,11 @@
 // never fire" investigation on this project checks real on-screen element
 // bounds FIRST, before re-litigating the gesture-arena mechanism itself.
 
-import m from "mithril";
-import shim from "mithril-lynx-v1";
-import { wrapElement } from "mithril-lynx-v1/element";
-import { createGesture } from "mithril-lynx-v1/gesture";
+import m from "mithril-runtime";
+import { redraw } from "mithril-lynx/mount-redraw";
+import { ensureId, createRef } from "../internal/native-ref.js";
+import { registerGesture } from "../internal/gesture.js";
 import { cx } from "../internal/cx.js";
-import { makeGestureControls } from "../internal/gesture-controls.js";
 import { nativeBool } from "../internal/native.js";
 
 function clamp(value, min, max) {
@@ -144,25 +149,24 @@ function settleTo(s, targetIndex) {
 	setTransform(s, baseOffsetFor(clamped, stepOf(s.attrs)), true);
 	if (changed && typeof s.attrs.onChange === "function") s.attrs.onChange(clamped);
 	startAutoPlay(s);
-	shim.redraw();
+	redraw();
 }
 
-function onTouchesDown(s, controller) {
+function onTouchesDown(s) {
 	s.isFirstMove = true;
 	s.axisDecided = false;
-	s.controls.interceptGesture(controller, true); // claim eagerly, release on the first move if it turns out vertical — mirrors swipe-action.js's own onTouchesDown, device-verified there
 	stopAutoPlay(s);
 }
 
-function onTouchesMove(s, event, controller) {
-	const x = event.params.clientX;
-	const y = event.params.clientY;
+function onTouchesMove(s, event) {
+	const x = event.clientX;
+	const y = event.clientY;
 
 	if (s.isFirstMove) {
 		s.isFirstMove = false;
 		s.startX = x;
 		s.startY = y;
-		return; // axis decision needs a real delta, from the next callback on — matching swipe-action.js's own onTouchesMove shape
+		return; // axis decision needs a real delta, from the next callback on — matching this file's own original onTouchesMove shape
 	}
 	const dx = x - s.startX;
 	const dy = y - s.startY;
@@ -170,14 +174,16 @@ function onTouchesMove(s, event, controller) {
 	if (!s.axisDecided) {
 		if (dx === 0 && dy === 0) return;
 		s.axisDecided = true;
+		// The arena itself already decided this on the main thread
+		// (arenaPolicy above) — tracked again here purely for this
+		// component's own UI concerns (the ui-swiping class, onSwipeStart),
+		// not to make the claim/release call, which no longer happens from
+		// app code at all.
 		s.isHorizontal = Math.abs(dx) >= Math.abs(dy);
 		if (s.isHorizontal) {
-			s.controls.interceptGesture(controller, true);
 			s.dragging = true;
 			if (typeof s.attrs.onSwipeStart === "function") s.attrs.onSwipeStart();
 		} else {
-			s.controls.interceptGesture(controller, false);
-			s.controls.fail(controller);
 			return;
 		}
 	}
@@ -222,24 +228,18 @@ export const Swiper = {
 		s.isHorizontal = false;
 		s.startX = 0;
 		s.startY = 0;
+		s.trackRefId = ensureId(null); // native ref (internal/native-ref.js) is by id — see manual 2
 	},
 
 	oncreate(vnode) {
 		const s = vnode.state;
-		const track = vnode.dom.firstChild;
-		s.trackEl = wrapElement(track);
+		s.trackEl = createRef(s.trackRefId);
 		setTransform(s, s.currentTransform, false);
 
-		const gesture = createGesture(vnode.dom, {
-			type: "native",
-			callbacks: {
-				onTouchesDown: (event, controller) => onTouchesDown(s, controller),
-				onTouchesMove: (event, controller) => onTouchesMove(s, event, controller),
-				onTouchesUp: () => onTouchesUp(s),
-			},
-		});
-		s.gesture = gesture;
-		s.controls = makeGestureControls(vnode.dom._handle, gesture.id);
+		// arenaPolicy {mode:"axis-lock", axis:"horizontal", referenceMoves:1}:
+		// claim eagerly on touch-down, decide on the SECOND move (using the
+		// first move as reference) — see this file's own header.
+		s.gesture = registerGesture(vnode.dom, "native", { mode: "axis-lock", axis: "horizontal", referenceMoves: 1 });
 
 		const swiperRef = vnode.attrs.swiperRef;
 		if (swiperRef != null) {
@@ -305,10 +305,24 @@ export const Swiper = {
 				// note below: the real bug turned out to be unrelated to both).
 				"enable-new-animator": nativeBool(false),
 				"ios-enable-simultaneous-touch": nativeBool(true),
+				// Forwarded from the registerGesture() call in oncreate — see
+				// docs/native-papi/papi-05-native-gestures.md. e.redraw = false
+				// on the high-frequency handlers: the drag writes its own
+				// transform imperatively (manual 2's pattern).
+				ongesturedown: (e) => {
+					onTouchesDown(s);
+					e.redraw = false;
+				},
+				ongesturemove: (e) => {
+					onTouchesMove(s, e);
+					e.redraw = false;
+				},
+				ongestureup: () => onTouchesUp(s), // settleTo() below already calls redraw() itself
 			},
 			m(
 				"view",
 				{
+					id: s.trackRefId,
 					class: cx(trackClassName, { "ui-swiper-track": true }),
 					style: Object.assign(
 						{
