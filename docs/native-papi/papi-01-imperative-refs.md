@@ -110,6 +110,19 @@ response it splits success/failure into `success`/`fail` (so `getValue()`
 either resolves or rejects, instead of always returning `{code, data}` and
 forcing you to check `code` by hand).
 
+**A real bug this caused, ported into `popover.js`.** A direct-handle ref's
+`invoke()` resolves with the raw `{code, data}` envelope — every caller has
+to unwrap it themselves (`res.data`). This bridge's `invoke()` already
+unwraps it before resolving — a caller ported without noticing the shape
+changed gets `res.data.data` → `undefined`, silently. That's exactly what
+happened moving `popover.js`'s `measureRect()`: it kept `.then((res) =>
+(res && res.data) || {})`, so every measurement silently came back `{}`
+— not an error, just a popover that never positions itself, retrying up to
+`MAX_MEASURE_ATTEMPTS` and giving up. Fixed to `.then((res) => res || {})`.
+Any component moving from a direct-handle `invoke()` to this one needs the
+same check at every call site — the fix doesn't announce itself with an
+error.
+
 To use it, the node needs a stable `id` to target — see `ensureId()` below.
 Unlike a direct handle (which already "is" the node), a selector depends on
 the node existing in the real tree at query time — care is needed not to

@@ -98,11 +98,39 @@ boundary twice (there and back), so the cost of a failed retry is a bit
 higher than before — it's worth keeping `MAX_MEASURE_ATTEMPTS` low (2-3)
 and not turning this into aggressive polling.
 
+**Two real bugs, found porting `popover.js`'s `maybeRecompute()`:**
+
+1. The unwrapped-response shape from manual 1 bit here too — `measureRect()`
+   still read `res.data`, silently getting `{}` back forever (measurement
+   never succeeded, popover never positioned itself, no error). Fixed to
+   `.then((res) => res || {})`.
+2. A `select()`-based ref throws SYNCHRONOUSLY when its id no longer
+   matches any element — real for this pattern specifically, since a retry
+   loop keeps a reference to a node that can be unmounted (`show` flips
+   false, a leave animation finishes) WHILE a `requestFrame`-scheduled
+   retry is still pending. That throw becomes an unhandled promise
+   rejection unless the calling code catches it — `maybeRecompute()`
+   now ends in `.catch(() => {})`, matching the "give up quietly" contract
+   `scheduleMeasure()` above already uses for a failed measurement.
+
+**A third, bigger one, not specific to measurement:** the redraw this
+pattern ends with (`redraw()`, from `mithril-lynx/mount-redraw` — see
+manual 1) is NOT synchronous. It schedules the actual re-render ~50ms out.
+Every test waiting for a measurement's result to show up in a render needs
+that margin on top of whatever else it's waiting for (an animation delay,
+a retry chain) — the same fix already made once this session for
+`presence.test.ts`/`dialog.test.ts`, needed again here for the same reason.
+Forgetting it doesn't look like a timing bug at first: `popover.test.ts`
+failed with the position stuck at the DEFAULT `"0px"`, which reads
+exactly like "the measurement never succeeded" rather than "it succeeded
+one tick too late to observe."
+
 ## How to test this without a device
 
 There's no "out of the box" support for simulating `boundingClientRect` —
-every test that needs it overrides `__InvokeUIMethod` inside its own
-`mount()`, returning fixed rectangles based on call order:
+every test that needs it sets `globalThis.__nodesRefInvokeHandler` (see
+manual 1's "how to test" section) inside its own `mount()`, returning
+fixed rectangles based on call order:
 
 ```ts
 const TRIGGER_RECT = { left: 100, top: 200, width: 50, height: 20 };
@@ -112,7 +140,7 @@ let invokeCallCount = 0;
 
 function mount(view) {
 	invokeCallCount = 0;
-	globalThis.__InvokeUIMethod = (_node, method, params, callback) => {
+	globalThis.__nodesRefInvokeHandler = (_element, method, _params, callback) => {
 		if (method === "boundingClientRect") {
 			// maybeRecompute() calls Promise.all([reference, floating]) — the
 			// first one (reference) is always requested before the second.
@@ -123,7 +151,7 @@ function mount(view) {
 			callback({ code: 0, data: {} });
 		}
 	};
-	// ... mount the component normally
+	// ... mount the component normally (see test/harness.ts)
 }
 ```
 

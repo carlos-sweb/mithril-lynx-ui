@@ -86,13 +86,13 @@
 //      advance state to Entered WHILE a retry chain is still in flight, and
 //      re-checking that exact condition made every further retry bail out
 //      immediately, silently, forever. Now only gates the FIRST attempt.
-import m from "mithril";
-import shim from "mithril-lynx-v1";
-import { wrapElement } from "mithril-lynx-v1/element";
+import m from "mithril-runtime";
+import { redraw } from "mithril-lynx/mount-redraw";
+import { ensureId, createRef } from "../internal/native-ref.js";
 import { Button } from "../button/button.js";
 import { cx } from "../internal/cx.js";
 import { requestFrame } from "../internal/frames.js";
-import { PresenceState, Presence, resolveAnimationStatus, usePresence } from "../presence/presence-legacy.js";
+import { PresenceState, Presence, resolveAnimationStatus, usePresence } from "../presence/presence.js";
 import { createScope } from "../scope/scope.js";
 
 const popoverScope = createScope();
@@ -139,7 +139,13 @@ function getAlign(placement) {
 }
 
 function measureRect(el) {
-	return el.invoke("boundingClientRect", { relativeTo: "" }).then((res) => (res && res.data) || {});
+	// internal/native-ref.js's invoke() already resolves with the unwrapped
+	// data (or rejects), not the raw {code, data} envelope a direct-handle
+	// wrapElement().invoke() used to — see
+	// docs/native-papi/papi-01-imperative-refs.md. A rejection (element
+	// gone, see maybeRecompute's own .catch()) propagates up rather than
+	// resolving to {}.
+	return el.invoke("boundingClientRect", { relativeTo: "" }).then((res) => res || {});
 }
 
 /**
@@ -185,7 +191,7 @@ export const PopoverRoot = {
 			forceMount: vnode.attrs.forceMount === true,
 			setUncontrolledShow: (next) => {
 				s.uncontrolledShow = next;
-				shim.redraw();
+				redraw();
 			},
 			onOpen: vnode.attrs.onOpen,
 			onClose: vnode.attrs.onClose,
@@ -220,11 +226,17 @@ export const PopoverRoot = {
 };
 
 export const PopoverTrigger = {
+	oninit(vnode) {
+		// A native ref (see internal/native-ref.js) is by id — reuse an
+		// explicit one from buttonProps if given, otherwise mint one.
+		vnode.state.refId = ensureId(vnode.attrs.buttonProps && vnode.attrs.buttonProps.id);
+	},
+
 	view(vnode) {
 		const ctx = popoverScope.useScope();
 		if (ctx == null) throw new Error("mithril-lynx-ui: <PopoverTrigger> must be used inside a <PopoverRoot>");
 		vnode.state.ctx = ctx;
-		const { style, className, disabled = false, transition, onClick } = vnode.attrs;
+		const { style, className, disabled = false, transition, onClick, buttonProps } = vnode.attrs;
 		const busy = resolveBusyState(ctx.state);
 		const presenceClassName = popoverClasses(statusOf(ctx.state), className, transition);
 
@@ -234,6 +246,7 @@ export const PopoverTrigger = {
 				style,
 				className: cx(presenceClassName, { "ui-busy": busy }),
 				disabled: busy || disabled,
+				buttonProps: Object.assign({ id: vnode.state.refId }, buttonProps),
 				onClick: () => {
 					const next = !ctx.show;
 					if (typeof ctx.onShowChange === "function") ctx.onShowChange(next);
@@ -250,29 +263,33 @@ export const PopoverTrigger = {
 	// timing gap slider.js already found and documented; see its own
 	// header).
 	oncreate(vnode) {
-		vnode.state.ctx.triggerEl = wrapElement(vnode.dom);
+		vnode.state.ctx.triggerEl = createRef(vnode.state.refId);
 	},
 	onupdate(vnode) {
-		vnode.state.ctx.triggerEl = wrapElement(vnode.dom);
+		vnode.state.ctx.triggerEl = createRef(vnode.state.refId);
 	},
 };
 
 /** Optional alternative reference point — see PopoverRootProps' own real docs: "If this is used, the Popover uses it rather than PopoverTrigger as the real anchor." */
 export const PopoverAnchor = {
+	oninit(vnode) {
+		vnode.state.refId = ensureId(vnode.attrs.id);
+	},
+
 	view(vnode) {
 		const ctx = popoverScope.useScope();
 		if (ctx == null) throw new Error("mithril-lynx-ui: <PopoverAnchor> must be used inside a <PopoverRoot>");
 		vnode.state.ctx = ctx;
 		ctx.hasAnchor = true;
 		const { style, className } = vnode.attrs;
-		return m("view", { class: className, style }, vnode.children);
+		return m("view", { id: vnode.state.refId, class: className, style }, vnode.children);
 	},
 
 	oncreate(vnode) {
-		vnode.state.ctx.anchorEl = wrapElement(vnode.dom);
+		vnode.state.ctx.anchorEl = createRef(vnode.state.refId);
 	},
 	onupdate(vnode) {
-		vnode.state.ctx.anchorEl = wrapElement(vnode.dom);
+		vnode.state.ctx.anchorEl = createRef(vnode.state.refId);
 	},
 };
 
@@ -319,31 +336,32 @@ const PopoverOverlayInternal = {
 	oninit(vnode) {
 		const s = vnode.state;
 		s.lastPresenceState = null;
+		// A native ref is by id (see internal/native-ref.js), and the thing
+		// that needs measuring here is the caller's own content (PopoverContent
+		// or whatever they passed), not the positioning wrapper below — see
+		// this file's own header on why. Rather than relying on that child's
+		// own top node happening to carry a usable id, an extra plain
+		// (non-positioned) inner <view> is rendered around it specifically to
+		// carry this ref's id — see view() below. Unverified on a real device
+		// (no device access this session): the previous, pre-migration version
+		// measured the child's own real node directly, with no extra wrapper;
+		// this changes the DOM shape by one level, on the assumption that a
+		// plain, non-positioned <view> sizes to its content the same way
+		// PopoverContent's own top node already was confirmed to.
+		s.contentRefId = ensureId(null);
 	},
 
 	// See PopoverTrigger's own note: ctx is stashed from view(), never
 	// re-fetched here.
-	//
-	// s.el is (re-)captured in BOTH oncreate and onupdate, same redundant-
-	// safety convention PopoverTrigger/PopoverAnchor already use: on device,
-	// vnode.dom.firstChild (the REAL content node — see the comment on why
-	// THIS is what gets measured, not vnode.dom itself) came back null the
-	// very first time oncreate ran, throwing there and silently skipping
-	// the rest of oncreate's own body (including the state-tracking write
-	// that stops onupdate from redoing the same work) — a genuine, narrow
-	// Lynx/Mithril child-attachment-timing gap this project hasn't hit
-	// before, not something worth chasing further given onupdate's own
-	// very next call already has a real node to grab.
 	oncreate(vnode) {
 		const s = vnode.state;
-		if (vnode.dom.firstChild != null) s.el = wrapElement(vnode.dom.firstChild);
+		s.el = createRef(s.contentRefId);
 		s.lastPresenceState = s.ctx.state;
 		maybeRecompute(vnode);
 	},
 
 	onupdate(vnode) {
 		const s = vnode.state;
-		if (vnode.dom.firstChild != null) s.el = wrapElement(vnode.dom.firstChild);
 		if (s.lastPresenceState !== s.ctx.state) {
 			s.lastPresenceState = s.ctx.state;
 			maybeRecompute(vnode);
@@ -391,7 +409,7 @@ const PopoverOverlayInternal = {
 				},
 				popoverPositionerProps,
 			),
-			vnode.children,
+			m("view", { id: s.contentRefId }, vnode.children),
 		);
 	},
 };
@@ -437,7 +455,16 @@ function maybeRecompute(vnode, attempt = 0) {
 			return;
 		}
 		ctx.floatingCoords = computePlacement(placement, reference, floating, placementOffset);
-		shim.redraw();
+		redraw();
+	}).catch(() => {
+		// The reference or content node can be unmounted (show flips false,
+		// leave animation finishes) WHILE a retry from this same chain is
+		// still in flight — a native ref selects by id (see
+		// internal/native-ref.js), and the real selector-query throws
+		// synchronously when nothing matches, which would otherwise surface
+		// as an unhandled rejection here. Nothing useful to do once the
+		// thing being measured is gone — same "give up quietly" contract
+		// swipe-action.js's own scheduleMeasure() already uses.
 	});
 }
 

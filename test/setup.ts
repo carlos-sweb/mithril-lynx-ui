@@ -70,6 +70,20 @@ globalThis.onInjectBackgroundThreadGlobals = (target: any) => {
 					return;
 				}
 				(globalThis as any).__nodesRefInvokeCalls.push({ element, method: opts.method, params: opts.params });
+				// A test needing a specific response (e.g. a real-looking
+				// boundingClientRect) sets this per test — same override
+				// convention __InvokeUIMethod already established. Default:
+				// always succeed, echoing back {method, params}.
+				const handler = (globalThis as any).__nodesRefInvokeHandler as
+					| ((element: unknown, method: string, params: unknown, callback: (res: { code: number; data?: unknown }) => void) => void)
+					| undefined;
+				if (typeof handler === "function") {
+					handler(element, opts.method, opts.params, (res) => {
+						if (res && res.code === 0) opts.success?.(res.data);
+						else opts.fail?.(res);
+					});
+					return;
+				}
 				opts.success?.({ method: opts.method, params: opts.params });
 			},
 		};

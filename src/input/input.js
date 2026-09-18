@@ -50,7 +50,7 @@ function makeRef(id) {
 		focus: () => el.invoke("focus"),
 		blur: () => el.invoke("blur"),
 		setValue: (value) => el.invoke("setValue", { value: value == null ? "" : String(value) }),
-		/** Resolves { value, selectionStart, selectionEnd } inside the PAPI's { code, data } envelope. */
+		/** Resolves { value, selectionStart, selectionEnd } directly — internal/native-ref.js's invoke() already unwraps the PAPI's { code, data } envelope, unlike a direct-handle ref (see docs/native-papi/papi-01-imperative-refs.md). */
 		getValue: () => el.invoke("getValue"),
 		setSelectionRange: (selectionStart, selectionEnd) =>
 			el.invoke("setSelectionRange", { selectionStart, selectionEnd }),
