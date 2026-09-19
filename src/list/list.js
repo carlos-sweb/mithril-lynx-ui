@@ -8,48 +8,44 @@
 // a three-step MTS `scrollIntoID` that measures a target cell and computes
 // an aligned offset by hand) on top of a SINGLE real primitive: native's
 // own recycling `<list>` element. mithril-lynx CORE has that primitive,
-// real and device-verified — mithril-lynx's own Op.CreateList (2.5.0+, see
+// real and device-verified — mithril-lynx's own Op.CreateList (2.6.0+, see
 // docs/native-papi/papi-06-virtualized-lists.md). This file is the
 // DECLARATIVE MITHRIL WRAPPER around it, not a rebuild of everything
 // upstream layers on top.
 //
-// A real API change from every other component in this project, forced by
-// mithril-lynx's own architecture: `renderItem` is NOT a prop here. Native
-// calls a list's cell-rendering callback SYNCHRONOUSLY, on the main
-// thread, based on real scroll position — a cross-thread round trip to
-// where this component's own code runs (the background thread) can never
-// satisfy that, and a raw JS closure can't cross that boundary anyway (main
-// and background are separate JS engine instances on a real device, not
-// just separate global scopes). So the render function has to be
-// registered on the MAIN thread instead, once, by a string key
-// (`mithril-lynx/list-support`'s `registerListRenderer(key, fn)`, called
-// from the app's own main-thread.ts) — `<List rendererKey="...">` just
-// references that same key. `items` still comes through normally as a
-// prop, since it's plain data, not code — it crosses the boundary fine.
+// `renderItem` runs HERE, on the background thread, same as everything else
+// this component does — mithril-lynx/list-cell's renderListCell() computes
+// each item's real construction ops through this SAME document (the one
+// `vnode.dom` already belongs to), so a cell's own event handlers dispatch
+// through a real background-thread fake-dom node exactly like any other
+// element's. The main thread (mithril-lynx's own list-support.js) never
+// calls renderItem() itself — it only replays those already-computed ops
+// when native's componentAtIndex asks for a given cell.
 //
-// Known, deliberate gaps carried from this same constraint:
-//   - No custom `itemKey` function — same cross-thread-closure problem as
-//     renderItem. Every cell keys by its own index (a String(cellIndex)),
-//     matching what mithril-lynx's Op.CreateList already does by default.
-//   - An event handler inside a rendererKey's own vnode tree (e.g. a tap
-//     on a list item) has no way back to this app's state — there's no
-//     background-thread fake-dom node for list cell content to dispatch
-//     through. Needs a deliberate reporting convention, not built yet.
-//   - No MTS `listMaxSize`/`useMaxSize`, no `scrollIntoID`, no
-//     autoScroll/getVisibleCells/exposure-id/exposure-scene/iOS-only
-//     touch-propagation knobs — same scope cuts as before this migration,
-//     unrelated to the rendererKey change.
+// Known, deliberate gap: no custom `itemKey` function. A key-deriving
+// closure has the same real constraint as anything else that runs
+// per-render — it CAN run on the background thread fine, but native's own
+// list-item identity (`item-key`) is what drives its recycling contract,
+// and mithril-lynx's Op.CreateList always keys by the item's own index
+// (`String(cellIndex)`). Not attempted here.
 //
 // What IS carried over faithfully: native requires scroll-orientation/
 // list-type/span-count unconditionally — Op.CreateList already enforces
 // exactly that; this wrapper's job is exposing that as ordinary attrs and
-// re-pushing the current item COUNT on every update (content changes to an
-// already-bound, already-visible cell don't automatically refresh — same
-// limitation the pre-migration version already had, unrelated to this
-// change) so native's own recycling knows how many cells exist to ask for.
+// re-pushing the current items on every update so native's own recycling
+// knows how many cells exist to ask for, and any already-visible cell whose
+// content changed gets refreshed in place (see list-support.js's
+// refreshAttachedCells).
 
 import m from "mithril-runtime";
+import renderFactory from "mithril-runtime/render/render.js";
+import { renderListCell } from "mithril-lynx/list-cell";
+import { redraw } from "mithril-lynx/mount-redraw";
 import { ensureId, createRef } from "../internal/native-ref.js";
+
+function buildCells(document, render, renderItem, items) {
+	return items.map((item, index) => renderListCell(document, render, redraw, renderItem, item, index));
+}
 
 export const List = {
 	oninit(vnode) {
@@ -59,19 +55,23 @@ export const List = {
 
 	oncreate(vnode) {
 		const s = vnode.state;
-		const { items = [], rendererKey, className, style, scrollOrientation, listType, spanCount, mainAxisGap = 0, crossAxisGap = 0 } = vnode.attrs;
-		if (typeof rendererKey !== "string") {
-			throw new Error(
-				"mithril-lynx-ui: <List> requires a `rendererKey` — register its renderer with registerListRenderer() from your app's main-thread.ts (see docs/native-papi/papi-06-virtualized-lists.md).",
-			);
+		const { items = [], renderItem, className, style, scrollOrientation, listType, spanCount, mainAxisGap = 0, crossAxisGap = 0 } = vnode.attrs;
+		if (typeof renderItem !== "function") {
+			throw new Error("mithril-lynx-ui: <List> requires a `renderItem` function.");
 		}
+
+		// One render() instance per List, reused for every cell — see
+		// mithril-lynx's list-cell.js for why that's safe (render() manages
+		// multiple independent containers fine) and preferred over creating a
+		// fresh one per cell.
+		s.render = renderFactory();
 
 		// Imperative escape hatch, same "outside Mithril's own reconciliation"
 		// contract mithril-lynx's own createGesture()/native refs already use
 		// — a native <list> isn't something render.js knows how to diff, it's
 		// created directly via the owning document's own factory method and
 		// attached as a plain child of this component's placeholder view.
-		s.list = vnode.dom.ownerDocument.createNativeList(rendererKey, { scrollOrientation, listType, spanCount });
+		s.list = vnode.dom.ownerDocument.createNativeList({ scrollOrientation, listType, spanCount });
 		s.list.setAttribute("id", s.refId);
 		if (className != null) s.list.className = className;
 		vnode.dom.appendChild(s.list);
@@ -86,7 +86,7 @@ export const List = {
 		if (style != null) s.list.style = style;
 		s.list.setAttribute("list-main-axis-gap", mainAxisGap);
 		s.list.setAttribute("list-cross-axis-gap", crossAxisGap);
-		s.list.setListItems(items);
+		s.list.setListItems(buildCells(vnode.dom.ownerDocument, s.render, renderItem, items));
 
 		const ref = createRef(s.refId);
 		s.listRef.scrollTo = (index, options) =>
@@ -96,8 +96,8 @@ export const List = {
 
 	onupdate(vnode) {
 		const s = vnode.state;
-		const { items = [], style } = vnode.attrs;
-		s.list.setListItems(items);
+		const { items = [], renderItem, style } = vnode.attrs;
+		s.list.setListItems(buildCells(vnode.dom.ownerDocument, s.render, renderItem, items));
 		// Skips a genuinely EMPTY style object: onupdate's hook can run twice
 		// for a single redraw() call (a real, reproducible mithril-lynx
 		// vnode-diffing quirk, unrelated to this file). Harmless either way —

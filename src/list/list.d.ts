@@ -14,10 +14,9 @@ export interface ListAttrs<T = unknown> {
   /** Required in practice: a native <list> only scrolls once it has an explicit size. */
   style?: Record<string, string | number>;
   items: T[];
-  /** Must return a fresh vnode for the item's content; may be called more than once for the same item (native recycling). */
-  renderItem(item: T, index: number): unknown;
-  /** Defaults to String(index). Set on every item's native "item-key" — required by native, not just an identity hint. */
-  itemKey?(item: T, index: number): string;
+  /** Returns the vnode for one item. Runs on the background thread, same as
+   * this component's own view() — see docs/native-papi/papi-06-virtualized-lists.md. */
+  renderItem: (item: T, index: number) => unknown;
   /** @defaultValue "vertical" */
   scrollOrientation?: "vertical" | "horizontal";
   /** @defaultValue "single" */

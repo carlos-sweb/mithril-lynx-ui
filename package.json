@@ -1,6 +1,6 @@
 {
   "name": "mithril-lynx-ui",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "A component library for mithril-lynx apps, visually identical to @lynx-js/lynx-ui (same Luna CSS tokens) — components ported/rebuilt for Mithril's component model instead of ReactLynx.",
   "license": "Apache-2.0",
   "type": "module",
@@ -121,7 +121,7 @@
   "peerDependencies": {
     "mithril": "2.3.8",
     "mithril-lynx-v1": "npm:mithril-lynx@^0.0.6",
-    "mithril-lynx": "^2.5.0",
+    "mithril-lynx": "^2.6.0",
     "mithril-runtime": "^1.1.0"
   },
   "dependencies": {

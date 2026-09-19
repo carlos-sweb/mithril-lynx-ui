@@ -11,8 +11,6 @@ export interface FeedListRef {
   startRefresh(): Promise<unknown>;
   /** Ends the refreshing state (native `finishRefresh`). Always call this once your reload settles, success or failure. */
   finishRefresh(): Promise<unknown>;
-  /** Toggles whether the load-more footer will fire `onLoadMore` again / shows `noMoreDataFooter` instead. */
-  changeHasMoreStatus(hasMore: boolean): void;
 }
 
 export interface FeedListRefreshOptions {
@@ -31,17 +29,6 @@ export interface FeedListAttrs<T = unknown> extends Omit<ListAttrs<T>, "listRef"
   listId?: string;
   /** `true` for a bare native pull-to-refresh with no header content, an options object for header content + callbacks, or omitted/`false` to disable refresh entirely. */
   refreshOptions?: boolean | FeedListRefreshOptions;
-  /** Fires once when the load-more footer scrolls into view. Omit to not render a footer at all. */
-  onLoadMore?(): void;
-  /**
-   * Called fresh each time the footer needs content, while `hasMore` is true
-   * (the default) — a plain vnode, not a function, renders BLANK the second
-   * time native recycles the footer cell (see feed-list.js's own comment on
-   * this; the same reason `renderItem` below must return fresh vnodes too).
-   */
-  loadMoreFooter?(): unknown;
-  /** Called fresh each time the footer needs content, once `changeHasMoreStatus(false)` has been called. */
-  noMoreDataFooter?(): unknown;
   /** A plain object to receive the imperative API on mount. */
   listRef?: Partial<FeedListRef>;
 }

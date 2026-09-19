@@ -1,6 +1,5 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril-runtime";
-import { registerListRenderer } from "mithril-lynx/list-support";
 import { FeedList } from "../src/feed-list/feed-list.js";
 import { mount, fire, type Mounted, type TestNode } from "./harness.js";
 
@@ -9,15 +8,7 @@ import { mount, fire, type Mounted, type TestNode } from "./harness.js";
 // wrapper. These tests focus on what THIS file adds, driving native events
 // the same way every other native event in this project is driven: fire it
 // directly on the node. The load-more footer sentinel this file used to
-// ship is gone — see this file's own header for why (it depended on an
-// event reaching back from inside list cell content, which list.js's own
-// "known gap" doesn't support since migrating to mithril-lynx's current
-// list primitive).
-
-let nextKey = 1;
-function uniqueKey() {
-	return `feed-list-test-${nextKey++}`;
-}
+// ship is gone — see this file's own header for the current status.
 
 function papiCalls(): { fn: string; args: unknown[] }[] {
 	return (globalThis as any).__papiCalls;
@@ -36,11 +27,11 @@ function requestCell(app: Mounted, list: TestNode, index: number, opId = 1) {
 	return handle.componentAtIndex(handle, listId, index, opId);
 }
 
+const renderItem = (item: string) => m("text", {}, item);
+
 describe("feed-list.js", () => {
 	it("with no refreshOptions, it's just List — no <refresh> wrapper", () => {
-		const key = uniqueKey();
-		registerListRenderer(key, (item: string) => m("text", {}, item));
-		const app = mount(() => m(FeedList, { items: ["a", "b"], rendererKey: key }));
+		const app = mount(() => m(FeedList, { items: ["a", "b"], renderItem }));
 
 		expect(app.root.tag).not.toBe("refresh");
 		const list = app.root.firstChild!;
@@ -51,9 +42,7 @@ describe("feed-list.js", () => {
 	});
 
 	it("wraps List in a native <refresh>/<refresh-header> when refreshOptions is truthy", () => {
-		const key = uniqueKey();
-		registerListRenderer(key, (item: string) => m("text", {}, item));
-		const app = mount(() => m(FeedList, { items: ["a"], rendererKey: key, refreshOptions: true, listId: "feed1" }));
+		const app = mount(() => m(FeedList, { items: ["a"], renderItem, refreshOptions: true, listId: "feed1" }));
 
 		const refreshView = app.root.firstChild!;
 		expect(refreshView.tag).toBe("refresh");
@@ -68,9 +57,7 @@ describe("feed-list.js", () => {
 		// shrink-wrapped to content width while <refresh> itself filled its box
 		// correctly) — see feed-list.js's own comment on this. The fix measures
 		// <refresh> via its own onlayoutchange and pushes real pixels instead.
-		const key = uniqueKey();
-		registerListRenderer(key, (item: string) => m("text", {}, item));
-		const app = mount(() => m(FeedList, { items: ["a"], rendererKey: key, refreshOptions: true, style: { width: "100%", height: "260px" } }));
+		const app = mount(() => m(FeedList, { items: ["a"], renderItem, refreshOptions: true, style: { width: "100%", height: "260px" } }));
 		const refreshView = app.root.firstChild!;
 		// .nextSibling here is List's own placeholder <view> (see list.js's
 		// own header) — the real native list is a further child appended
@@ -90,13 +77,11 @@ describe("feed-list.js", () => {
 	});
 
 	it("bindstartrefresh/bindheaderoffset/bindrefreshstatechange forward to the matching callback", () => {
-		const key = uniqueKey();
-		registerListRenderer(key, (item: string) => m("text", {}, item));
 		const events: unknown[] = [];
 		const app = mount(() =>
 			m(FeedList, {
 				items: ["a"],
-				rendererKey: key,
+				renderItem,
 				refreshOptions: {
 					enableRefresh: true,
 					onStartRefresh: (e: unknown) => events.push(["start", e]),
@@ -119,10 +104,8 @@ describe("feed-list.js", () => {
 	});
 
 	it("listRef.startRefresh/finishRefresh invoke the matching native UI method on the <refresh> node", async () => {
-		const key = uniqueKey();
-		registerListRenderer(key, (item: string) => m("text", {}, item));
 		const listRef: { startRefresh?: () => Promise<unknown>; finishRefresh?: () => Promise<unknown> } = {};
-		const app = mount(() => m(FeedList, { items: ["a"], rendererKey: key, refreshOptions: true, listRef }));
+		const app = mount(() => m(FeedList, { items: ["a"], renderItem, refreshOptions: true, listRef }));
 		const refreshView = app.root.firstChild!;
 		const handle = app.applier.getHandle(refreshView._id);
 		const invokeCalls = () => (globalThis as any).__nodesRefInvokeCalls as { element: unknown; method: string }[];
@@ -135,10 +118,8 @@ describe("feed-list.js", () => {
 	});
 
 	it("listRef.scrollTo forwards to the underlying List's own scrollTo", async () => {
-		const key = uniqueKey();
-		registerListRenderer(key, (item: string) => m("text", {}, item));
 		const listRef: { scrollTo?: (index: number) => Promise<unknown> } = {};
-		const app = mount(() => m(FeedList, { items: ["a", "b"], rendererKey: key, listRef }));
+		const app = mount(() => m(FeedList, { items: ["a", "b"], renderItem, listRef }));
 		const list = app.root.firstChild!;
 
 		await listRef.scrollTo!(1);

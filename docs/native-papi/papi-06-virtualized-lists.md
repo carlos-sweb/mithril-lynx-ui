@@ -38,105 +38,94 @@ whether that's a brand-new cell or one being reused from the recycle pool.
 out of view and its content is no longer needed, so it can go back into the
 pool keyed by content type.
 
-## Why code, not data, has to cross the boundary
+## Why this doesn't need code to cross the boundary after all
 
 Real Lynx main and background threads are separate JS engine instances —
 that's the fact behind every bridge in this whole manual set: no shared
-memory, no shared closures, only serializable messages. Every earlier
-pattern worked around that by sending DATA across (a method name and
-params, a style object, touch coordinates) while the CODE that decides
-what to do with that data — the app's own component logic — stayed put on
-the background thread, the only place it ever needs to run.
+memory, no shared closures, only serializable messages. Every other
+pattern in this manual set works around that by sending DATA across (a
+method name and params, a style object, touch coordinates) while the CODE
+that decides what to do with that data — the app's own component logic —
+stays put on the background thread, the only place it ever needs to run.
 
-A virtualized list breaks that: `componentAtIndex` fires on the main
-thread and needs an answer synchronously. There is no async option, so
-there is no way to ask the background thread "what does cell 47 look
-like?" and wait for a reply — by the time any reply could arrive, native
-has already timed out the request. The render logic that decides what a
-cell looks like has to actually run ON the main thread. That means the
-app's own `renderItem` function itself — not just data — has to exist
-there.
+The first version of this design broke that rule: it ran `renderItem`
+itself on the main thread, registered there by a string key
+(`registerListRenderer`), because `componentAtIndex` fires on the main
+thread and native needs an answer for it. Checking how `@lynx-js/react`
+solves the exact same native contract (its own `componentAtIndex`
+implementations, `runtime/lib/snapshot/list/list.js` and
+`runtime/lib/element-template/runtime/list/list.js`) shows it never runs
+render logic inside `componentAtIndex` at all: an item's content is
+computed once, as part of the app's own normal render pass, and
+`componentAtIndex` only attaches/materializes what's already there.
 
-A plain JS closure can't be shipped across a real thread boundary the way
-it can be "passed" in a single-process test. So mithril-lynx doesn't try —
-an app registers its cell-rendering function directly on the main thread,
-by a string key, from its own `main-thread.ts` (a genuinely separate
-webpack entry point in this project's build — see `create-mithril-lynx`'s
-`lynx.config.ts` — not a stub that can only ever contain
-`setupRenderer()`, just one that never had a reason to import anything
-else before now):
-
-```js
-// main-thread.ts
-import { setupRenderer } from "mithril-lynx/main-thread";
-import { registerListRenderer } from "mithril-lynx/list-support";
-import { renderProductRow } from "./lists.js"; // a plain, shared module — see below
-
-registerListRenderer("products", renderProductRow);
-setupRenderer();
-```
-
-`./lists.js` is an ordinary module BOTH `main-thread.ts` and
-`background.ts` import — the render function itself is only ever defined
-once; each thread's own bundle just ends up with its own compiled copy of
-that same module (this project's build already produces two genuinely
-separate bundles — one per thread — so importing the same source file from
-both sides is not a new build capability, it falls out of the entry points
-that already exist). `renderProductRow` has to be a pure function of
-`(item, index)`: it can't close over background-thread-only state (a
-variable from `background.ts`, another component instance, anything that
-only exists where the app's own Mithril tree lives), since it also has to
-run standalone with nothing but the data it's given.
+mithril-lynx now does the analogous thing. `renderItem` runs on the
+BACKGROUND thread, through the app's own document — same as every other
+component in the app — via `mithril-lynx/list-cell`'s `renderListCell()`.
+It produces a self-contained set of construction ops (this project's own
+existing flat op format, the same one every other patch already uses) for
+that one item, using an off-tree container in the SAME document as the
+rest of the app (so the item's real fake-dom nodes land in the same
+`document._nodesById` map — a forwarded native event for one of them
+dispatches through the normal channel, exactly like any other element's).
+The main thread's `componentAtIndex` (mithril-lynx's own
+`list-support.js`) never calls `renderItem()` itself; it only replays
+those already-computed ops into a real native cell when native asks for a
+given index.
 
 ## The real, implemented design
 
-`mithril-lynx-ui`'s `List` component no longer takes a `renderItem` prop —
-it takes a `rendererKey` (the same string passed to
-`registerListRenderer`). Everything else — `items`, `scrollOrientation`,
-`style`, gaps — is still ordinary data, passed normally.
+`mithril-lynx-ui`'s `List` component takes a plain `renderItem` prop again
+— it runs on the background thread, same as `view()`. `items`,
+`scrollOrientation`, `style`, gaps are still ordinary data, passed
+normally.
 
-On the mithril-lynx side (2.5.0+), a new patch op, `Op.CreateList`,
-triggers `apply-patch.js` to:
+On the mithril-lynx side (2.6.0+):
 
-1. Look up the registered render function for that `rendererKey`.
-2. Call the real, unmodified native `__CreateList`, with
-   `componentAtIndex`/`enqueueComponent` implemented right there.
-3. For each requested cell: run a REAL, self-contained Mithril render pass
-   — the exact same pieces `background.js` uses for the app's own tree
-   (`mithril-runtime`'s real `render()`, `fake-dom.js`, a virtual backend)
-   — but applied to itself immediately, via a nested patch applier, on
-   THIS thread, instead of crossing a channel. Each cell keeps its own
-   persistent fake-dom document, so recycling a cell for a different item
-   is a real Mithril diff against its previous content, not a
-   teardown-and-rebuild — the same reason a normal redraw doesn't rebuild
-   an app's whole tree from scratch either.
-
-This is deliberately not a predictive buffer/window system — there's
-nothing to predict. `componentAtIndex` runs the real render, synchronously,
-the moment native asks, so it works correctly regardless of list size: a
-10-item list and a 10,000-item list cost exactly the same per visible
-cell, because nothing is ever pre-rendered ahead of need.
+1. `Op.CreateList` creates the real, unmodified native `__CreateList`, with
+   `componentAtIndex`/`enqueueComponent` implemented in `list-support.js`.
+2. `List`'s own `oncreate`/`onupdate` call `renderListCell()` once per
+   item (background thread), each producing `{ typeKey, containerId, ops,
+   rootChildIds }`, and ship the whole array via `Op.SetListItems`.
+3. `componentAtIndex` looks up the cell for the requested index and
+   replays its `ops` into a real native `list-item` wrapper (via the SAME
+   `createPatchApplier` every other patch uses, just seeded so the ops'
+   root id aliases that wrapper — see `apply-patch.js`'s `registerRoot`).
+   Recycling a cell for a different item clears its real children (using
+   `rootChildIds`) and replays the new item's ops — a teardown-and-rebuild
+   of that cell's content, not a diff against what was there before (a
+   real trade-off against the first version's per-cell persistent-document
+   diff, made because a diff on recycle would need to know, at the time
+   background renders an item, which native cell will end up reusing it —
+   information only native has, on the main thread).
+4. Any already-attached (currently visible) cell gets re-flushed with its
+   newest ops on every `Op.SetListItems` — so a redraw triggered by a tap
+   inside a cell (or any other state change reaching this list's items)
+   updates what's on screen, not just future `componentAtIndex` calls.
 
 `src/internal/gesture.js`-style thinness doesn't apply here — this
 genuinely needed a new primitive in mithril-lynx core
-(`src/list-support.js`), not just a userspace wrapper, because nothing in
-mithril-lynx-ui's own code runs early enough or on the right thread to
-register a main-thread render function itself.
+(`src/list-cell.js` + `src/list-support.js`), not just a userspace
+wrapper, because a native list's synchronous `componentAtIndex` contract
+still needs SOMETHING ready to hand back immediately; it's just that
+"ready" now means "already computed by the last render pass," not
+"computed fresh, in a second isolated render engine, on this thread."
 
 Real usage, `src/list/list.js`:
 
 ```js
 oncreate(vnode) {
 	const s = vnode.state;
-	const { items = [], rendererKey, className, style, scrollOrientation, listType, spanCount, mainAxisGap = 0, crossAxisGap = 0 } = vnode.attrs;
-	if (typeof rendererKey !== "string") {
-		throw new Error("mithril-lynx-ui: <List> requires a `rendererKey`.");
+	const { items = [], renderItem, className, style, scrollOrientation, listType, spanCount, mainAxisGap = 0, crossAxisGap = 0 } = vnode.attrs;
+	if (typeof renderItem !== "function") {
+		throw new Error("mithril-lynx-ui: <List> requires a `renderItem` function.");
 	}
 
 	// Same "outside Mithril's own reconciliation" escape hatch every other
 	// native-gesture/native-ref component in this project already uses —
 	// a native <list> isn't something render.js knows how to diff.
-	s.list = vnode.dom.ownerDocument.createNativeList(rendererKey, { scrollOrientation, listType, spanCount });
+	s.render = renderFactory(); // one render() instance, reused for every cell
+	s.list = vnode.dom.ownerDocument.createNativeList({ scrollOrientation, listType, spanCount });
 	s.list.setAttribute("id", s.refId); // for scrollTo's own native ref — manual 1
 	if (className != null) s.list.className = className;
 	vnode.dom.appendChild(s.list);
@@ -144,13 +133,13 @@ oncreate(vnode) {
 	if (style != null) s.list.style = style;
 	s.list.setAttribute("list-main-axis-gap", mainAxisGap);
 	s.list.setAttribute("list-cross-axis-gap", crossAxisGap);
-	s.list.setListItems(items);
+	s.list.setListItems(buildCells(vnode.dom.ownerDocument, s.render, renderItem, items));
 },
 
 onupdate(vnode) {
 	const s = vnode.state;
-	const { items = [], style } = vnode.attrs;
-	s.list.setListItems(items); // re-sends the count delta as insert/remove — see below
+	const { items = [], renderItem, style } = vnode.attrs;
+	s.list.setListItems(buildCells(vnode.dom.ownerDocument, s.render, renderItem, items)); // re-sends the count delta as insert/remove, and refreshes any attached cell in place — see below
 	if (style != null && Object.keys(style).length > 0) s.list.style = style;
 },
 ```
@@ -164,25 +153,29 @@ as any other element. Only the imperative `scrollTo` (an `invoke()` call
 made later, from arbitrary app code, not from this component's own
 render) needs manual 1's id-based bridge.
 
-`items` crosses as plain JSON (`Op.SetListItems`) — it must be
-JSON-serializable, the same constraint `renderItem`'s own `item` argument
-carries. `List` doesn't support a custom `itemKey` function anymore, for
-the identical reason `renderItem` itself had to move: a key-deriving
-closure can't cross the boundary either. Every cell keys by its own index.
+`items` still crosses as plain JSON — `renderListCell()`'s output
+(`cells`, one entry per item) is what actually goes out over
+`Op.SetListItems` now, computed fresh each time from `items`/`renderItem`.
+`List` doesn't support a custom `itemKey` function: native's own list-item
+identity is what drives its recycling contract, and mithril-lynx's
+`Op.CreateList` always keys by the item's own index (`String(cellIndex)`)
+— not attempted here.
 
-## Known, real gap this doesn't solve
+## What used to be a known gap, and isn't anymore
 
-An event handler inside a `rendererKey`'s own vnode tree (a tap on a list
-row) fires entirely on the main thread, with whatever `renderProductRow`
-closed over there — which can't include the app's own state, by the same
-constraint that put it there in the first place. There is no
-background-thread fake-dom node for list cell content to dispatch an event
-through, unlike every other element in the app. Reaching back into app
-state from inside a list cell (e.g. "tapping a row selects it") needs a
-deliberate reporting convention on top of this — not built yet. `List`
-today is correct and complete for read-only, scrollable content; making a
-cell's own interactions reach the app is the next real piece of work here,
-not a device-verification question like manual 5's open items.
+The first version of this design ran `renderItem` on the main thread, so a
+tap handler inside a cell had no background-thread fake-dom node to
+dispatch through — no way to reach the app's own state. Since `renderItem`
+now runs on the background thread, through the app's own document (see
+above), a cell's event handlers are ordinary handlers on ordinary
+background-thread nodes, dispatched exactly like any other element's — no
+separate reporting convention needed.
+
+What IS still a real, documented trade-off: recycling a cell for a
+different item is a teardown-and-rebuild of that cell's real children, not
+a diff against what was there before (see mithril-lynx's own
+`list-support.js`) — a real cost for content-heavy cells on very large
+lists, not attempted to be minimized yet.
 
 ## How to test this without a device
 
@@ -192,9 +185,13 @@ real chain runs for real in tests, the same way `mithril-lynx` core's own
 `test/list.test.ts` and `mithril-lynx-ui`'s `test/list.test.ts` both do:
 
 ```ts
-import { registerListRenderer } from "mithril-lynx/list-support";
+import { renderListCell } from "mithril-lynx/list-cell";
+import { createLynxDocument } from "mithril-lynx"; // or reuse an app's own document
+import { createVirtualBackend } from "mithril-lynx"; // see mithril-lynx/test/list.test.ts for the real imports
 
-registerListRenderer("my-list", (item, index) => m("text", {}, `${index}:${item}`));
+const document = createLynxDocument(createVirtualBackend());
+const render = renderFactory();
+const cells = items.map((item, index) => renderListCell(document, render, () => {}, (item, index) => m("text", {}, `${index}:${item}`), item, index));
 
 function requestCell(app, listNode, index, opId = 1) {
 	const handle = app.applier.getHandle(listNode._id);
@@ -203,9 +200,10 @@ function requestCell(app, listNode, index, opId = 1) {
 }
 ```
 
-One real wrinkle, not present anywhere else in this manual set: list cell
-content is real PAPI elements created directly by `componentAtIndex`, so
-it never touches the background thread's own fake-dom tree at all — read
+One real wrinkle, not present anywhere else in this manual set: a list
+cell's real, DISPLAYED content is real PAPI elements the main thread
+materialized by replaying `renderListCell()`'s ops (list-support.js), so
+it never touches the background thread's own visible fake-dom tree — read
 it off the REAL handle (`app.applier.getHandle(listNode._id).firstChild`,
 walking real DOM nodes), not off a fake-dom `TestNode`'s own
 `.firstChild`, which will always be `null` for list content.

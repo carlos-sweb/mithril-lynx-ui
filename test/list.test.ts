@@ -1,22 +1,17 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril-runtime";
-import { registerListRenderer } from "mithril-lynx/list-support";
 import { List } from "../src/list/list.js";
 import { mount, type Mounted, type TestNode } from "./harness.js";
 
 // Op.CreateList itself (mithril-lynx core) already has its own thorough
 // test suite covering the native list contract (recycling, componentAtIndex,
-// item-count growth/shrink) — these tests focus on what THIS declarative
-// wrapper adds: exposing scrollOrientation/listType/spanCount/style/gap as
-// ordinary attrs, keeping the native list's own item count current across
-// re-renders, and the scrollTo ref. renderItem itself is registered on the
-// "main thread" side via registerListRenderer() — see list.js's own header
-// for why it's no longer a plain prop.
-
-let nextKey = 1;
-function uniqueKey() {
-	return `list-test-${nextKey++}`;
-}
+// item-count growth/shrink) and list-cell.js's own background-thread
+// rendering — these tests focus on what THIS declarative wrapper adds:
+// exposing scrollOrientation/listType/spanCount/style/gap as ordinary
+// attrs, keeping the native list's own item count current across
+// re-renders, and the scrollTo ref. `renderItem` is a plain prop here,
+// same as `view()` — it runs on the background thread through this
+// component's own document, see list.js's own header.
 
 function papiCalls(): { fn: string; args: unknown[] }[] {
 	return (globalThis as any).__papiCalls;
@@ -40,10 +35,11 @@ function styleOf(app: Mounted, node: TestNode): Record<string, unknown> {
 	return out;
 }
 
-/** List item content is real PAPI elements created directly on the main
- * thread (see list.js's own header) — it never touches the background
- * thread's own fake-dom tree, so it has to be read off the REAL handle
- * (a real jsdom node here), not off the fake-dom `TestNode`. */
+/** A cell's real, DISPLAYED content is real PAPI elements the main thread
+ * materialized by replaying ops list-cell.js already computed (see
+ * list-support.js) — it never touches the background thread's own fake-dom
+ * tree directly, so it has to be read off the REAL handle (a real jsdom
+ * node here), not off the fake-dom `TestNode`. */
 function realTextOf(node: any): string {
 	if (node == null) return "";
 	let out = "";
@@ -61,9 +57,7 @@ function requestCell(app: Mounted, list: TestNode, index: number, opId = 1) {
 
 describe("list.js", () => {
 	it("renders a native list carrying the required attrs, sized from `items`", () => {
-		const key = uniqueKey();
-		registerListRenderer(key, (item: string) => m("text", {}, item));
-		const app = mount(() => m(List, { rendererKey: key, items: ["a", "b", "c"] }));
+		const app = mount(() => m(List, { renderItem: (item: string) => m("text", {}, item), items: ["a", "b", "c"] }));
 		const list = app.root.firstChild!;
 
 		expect(attrsOf(app, list)).toMatchObject({
@@ -74,10 +68,8 @@ describe("list.js", () => {
 	});
 
 	it("renderItem(item, index) receives the actual item, not just the index", () => {
-		const key = uniqueKey();
-		registerListRenderer(key, (item: string, index: number) => m("text", {}, `${index}:${item}`));
 		const items = ["Alpha", "Bravo", "Charlie"];
-		const app = mount(() => m(List, { rendererKey: key, items }));
+		const app = mount(() => m(List, { renderItem: (item: string, index: number) => m("text", {}, `${index}:${item}`), items }));
 		const list = app.root.firstChild!;
 
 		requestCell(app, list, 1);
@@ -88,10 +80,8 @@ describe("list.js", () => {
 	});
 
 	it("growing/shrinking `items` sends the matching insertAction/removeAction, without recreating the native list", () => {
-		const key = uniqueKey();
-		registerListRenderer(key, (item: string) => m("text", {}, item));
 		let items = ["a", "b", "c"];
-		const app = mount(() => m(List, { rendererKey: key, items }));
+		const app = mount(() => m(List, { renderItem: (item: string) => m("text", {}, item), items }));
 		const list = app.root.firstChild!;
 		const createListCallsBefore = papiCalls().filter((c) => c.fn === "__CreateList").length;
 
@@ -115,10 +105,8 @@ describe("list.js", () => {
 	});
 
 	it("a data change is visible the next time native recycles/requests a cell", () => {
-		const key = uniqueKey();
-		registerListRenderer(key, (item: string) => m("text", {}, item));
 		let items = ["a", "b", "c"];
-		const app = mount(() => m(List, { rendererKey: key, items }));
+		const app = mount(() => m(List, { renderItem: (item: string) => m("text", {}, item), items }));
 		const list = app.root.firstChild!;
 
 		items = ["x", "y", "z"];
@@ -129,20 +117,30 @@ describe("list.js", () => {
 		expect(realTextOf(listHandle.firstChild)).toBe("x");
 	});
 
+	it("a data change refreshes an already-attached cell's content in place, without a new componentAtIndex call", () => {
+		let items = ["a", "b", "c"];
+		const app = mount(() => m(List, { renderItem: (item: string) => m("text", {}, item), items }));
+		const list = app.root.firstChild!;
+		const listHandle = app.applier.getHandle(list._id) as any;
+
+		requestCell(app, list, 0);
+		expect(realTextOf(listHandle.firstChild)).toBe("a");
+
+		items = ["z", "b", "c"];
+		app.redraw();
+		expect(realTextOf(listHandle.firstChild)).toBe("z");
+	});
+
 	it("pushes `style` onto the real native list element, not the placeholder view", () => {
-		const key = uniqueKey();
-		registerListRenderer(key, (item: string) => m("text", {}, item));
-		const app = mount(() => m(List, { rendererKey: key, items: ["a"], style: { width: "100%", height: "400px" } }));
+		const app = mount(() => m(List, { renderItem: (item: string) => m("text", {}, item), items: ["a"], style: { width: "100%", height: "400px" } }));
 		const list = app.root.firstChild!;
 
 		expect(styleOf(app, list)).toMatchObject({ width: "100%", height: "400px" });
 	});
 
 	it("listRef.scrollTo invokes scrollToPosition on the native list", async () => {
-		const key = uniqueKey();
-		registerListRenderer(key, (item: string) => m("text", {}, item));
 		const listRef: { scrollTo?: (index: number) => Promise<unknown> } = {};
-		const app = mount(() => m(List, { rendererKey: key, items: ["a", "b"], listRef }));
+		const app = mount(() => m(List, { renderItem: (item: string) => m("text", {}, item), items: ["a", "b"], listRef }));
 		const list = app.root.firstChild!;
 
 		await listRef.scrollTo!(1);
@@ -155,10 +153,8 @@ describe("list.js", () => {
 	});
 
 	it("scrollOrientation/listType/spanCount pass straight through to Op.CreateList", () => {
-		const key = uniqueKey();
-		registerListRenderer(key, (item: string) => m("text", {}, item));
 		const app = mount(() =>
-			m(List, { rendererKey: key, items: ["a", "b"], scrollOrientation: "horizontal", listType: "flow", spanCount: 2 }),
+			m(List, { renderItem: (item: string) => m("text", {}, item), items: ["a", "b"], scrollOrientation: "horizontal", listType: "flow", spanCount: 2 }),
 		);
 		const list = app.root.firstChild!;
 
@@ -169,7 +165,7 @@ describe("list.js", () => {
 		});
 	});
 
-	it("requires a rendererKey and fails loudly without one", () => {
-		expect(() => mount(() => m(List, { items: ["a"] }))).toThrow(/requires a `rendererKey`/);
+	it("requires a renderItem and fails loudly without one", () => {
+		expect(() => mount(() => m(List, { items: ["a"] } as any))).toThrow(/requires a `renderItem`/);
 	});
 });
