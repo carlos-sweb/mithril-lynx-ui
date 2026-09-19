@@ -53,6 +53,16 @@
 
 .ui-drawer-content {
   width: 280px;
+  /* A percentage height on anything INSIDE this panel (e.g. a nav list's
+     own "height: 100%" wrapper around a <scroll-view>) has nothing real to
+     resolve against without this: the panel is positioned by sheet.js
+     (fixed, off-tree of normal flow), so with no height of its own it
+     shrink-wraps to its content's intrinsic height instead of the screen —
+     the same percentage-through-an-imperative/positioned-boundary failure
+     already found and fixed once in feed-list.js (see that file's own
+     comment on <refresh>'s child List). `100vh`, not "100%", since this
+     class has no real ancestor height to be a percentage of either. */
+  height: 100vh;
   padding: 20px;
   background-color: var(--paper);
 }
