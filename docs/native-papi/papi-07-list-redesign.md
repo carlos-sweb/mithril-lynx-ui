@@ -62,6 +62,43 @@ Trade-off: every item keeps its element tree for its whole life; only the
 attached ones have native UI views. That is the same trade-off ReactLynx
 makes, and is sized for lists up to a few thousand items.
 
+## Verified on a real device
+
+Android (Samsung SM-A075M, Lynx Go), with `non-contact`'s country picker
+migrated to `list` (sticky letter headers added for the test):
+
+- Fast scrolling in both directions keeps items in order (2.x scrambled them).
+- Search filtering — bulk middle removals and re-insertions, typed fast and
+  repeatedly — renders correctly, with no crash and no stale cells.
+- `sticky` + `sticky-top` + `full-span` + `reuse-identifier` headers stick
+  and hand over correctly.
+- `scrollstatechange` (states 2 → 3 → 1), `layoutcomplete` (with
+  `diffResult`) and `scrolltolower` (with `lower-threshold-item-count`) reach
+  the background handlers.
+- `scrollToPosition` with `itemKey` jumps to the right item.
+- Process memory (PSS): +12 MB for ~250 rows, +77 MB for ~2,000 rows
+  (each row has an SVG flag), no crash.
+
+**The removal contract native expects** (found on the device, encoded in
+`list-runtime.js` and its tests): an on-screen item that is removed must be
+detached from the list element only **after** the patch's
+`update-list-info` has been flushed. Detaching it before crashes native
+(SIGSEGV after `[List] Fail to erase item holder`); never detaching it leaves
+its element as an orphan child of the list, because native never calls
+`enqueueComponent` for removed items.
+
+## Known limitation: `update-animation`
+
+With `update-animation="default"`, native animates removed cells and crashes
+when the animation ends if their elements were detached. mithril-lynx
+therefore leaves removed items attached on such lists (no crash, but their
+elements accumulate as orphans, and stale cells were seen on screen) and
+logs a warning. Don't use `update-animation` in production until this is
+solved.
+
+Native also logs `[List] Fail to erase item holder at pos = N` (non-fatal)
+during bulk removals, with or without mithril-lynx detaching anything.
+
 ## Coverage
 
 | Area | Supported |
@@ -104,5 +141,5 @@ m(List, {
 5. Booleans for list attributes can now be real booleans (`bounces: false`);
    `nativeBool()` is no longer needed for them.
 6. Check on a device: scrolling and recycling, filtering/reordering,
-   `sticky`, `item-snap`, `update-animation`, `scrolltolower`,
-   `scrollToPosition` with `itemKey`.
+   `sticky`, `item-snap`, `scrolltolower`, `scrollToPosition` with
+   `itemKey`. Avoid `update-animation` for now (see above).
