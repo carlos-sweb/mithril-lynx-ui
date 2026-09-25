@@ -1,5 +1,8 @@
 # 6 — Virtualized lists
 
+> **Superseded** by [papi-07](./papi-07-list-redesign.md) in mithril-lynx 3.0.0.
+> This page documents the 2.x design, kept for history.
+
 ## What this solves
 
 A list with thousands of items can't render all of them at once — it needs

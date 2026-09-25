@@ -18,6 +18,7 @@
 
 import { renderApp } from "mithril-lynx/background";
 import { createPatchApplier } from "mithril-lynx/testing";
+import { unregister } from "mithril-lynx/mount-redraw";
 
 export interface TestNode {
 	tag: string;
@@ -85,6 +86,10 @@ export function mount(root: () => unknown): Mounted {
 	applier.registerPageRoot(view);
 
 	lynxTestingEnv.switchToBackgroundThread();
+	// mithril-lynx keeps one redraw slot per background context and throws
+	// on a second register() — each test mounts a fresh app, so release the
+	// previous one's slot first.
+	unregister();
 	const app = renderApp({
 		root,
 		sendPatch: (ops) => {

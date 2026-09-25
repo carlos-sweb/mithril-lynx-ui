@@ -1,17 +1,15 @@
-import { describe, expect, it } from "@rstest/core";
+import { describe, expect, it, rstest } from "@rstest/core";
 import m from "mithril-runtime";
 import { List } from "../src/list/list.js";
-import { mount, type Mounted, type TestNode } from "./harness.js";
+import { mount, fire, type Mounted, type TestNode } from "./harness.js";
 
-// Op.CreateList itself (mithril-lynx core) already has its own thorough
-// test suite covering the native list contract (recycling, componentAtIndex,
-// item-count growth/shrink) and list-cell.js's own background-thread
-// rendering — these tests focus on what THIS declarative wrapper adds:
-// exposing scrollOrientation/listType/spanCount/style/gap as ordinary
-// attrs, keeping the native list's own item count current across
-// re-renders, and the scrollTo ref. `renderItem` is a plain prop here,
-// same as `view()` — it runs on the background thread through this
-// component's own document, see list.js's own header.
+// List is a thin wrapper over mithril-lynx's native `list`/`list-item`
+// elements (3.0.0+). mithril-lynx core has its own suite for the native
+// contract itself (update-list-info diffing, componentAtIndex attach/detach,
+// typed attributes, teardown); these tests cover what THIS wrapper adds:
+// keyed items from getItemKey, per-item attrs from getItemAttrs, the
+// camelCase conveniences and their defaults, pass-through of every other
+// attribute and event, and the listRef methods.
 
 function papiCalls(): { fn: string; args: unknown[] }[] {
 	return (globalThis as any).__papiCalls;
@@ -35,11 +33,13 @@ function styleOf(app: Mounted, node: TestNode): Record<string, unknown> {
 	return out;
 }
 
-/** A cell's real, DISPLAYED content is real PAPI elements the main thread
- * materialized by replaying ops list-cell.js already computed (see
- * list-support.js) — it never touches the background thread's own fake-dom
- * tree directly, so it has to be read off the REAL handle (a real jsdom
- * node here), not off the fake-dom `TestNode`. */
+function lastListInfo(app: Mounted, list: TestNode): any {
+	const handle = app.applier.getHandle(list._id);
+	return papiCalls()
+		.filter((c) => c.fn === "__SetAttribute" && c.args[0] === handle && c.args[1] === "update-list-info")
+		.at(-1)?.args[2];
+}
+
 function realTextOf(node: any): string {
 	if (node == null) return "";
 	let out = "";
@@ -51,118 +51,108 @@ function realTextOf(node: any): string {
 
 function requestCell(app: Mounted, list: TestNode, index: number, opId = 1) {
 	const handle = app.applier.getHandle(list._id) as any;
-	const listId = __GetElementUniqueID(handle);
-	return handle.componentAtIndex(handle, listId, index, opId);
+	return handle.componentAtIndex(handle, __GetElementUniqueID(handle), index, opId, false);
 }
 
+const renderItem = (item: string) => m("text", {}, item);
+const getItemKey = (item: string) => item;
+
 describe("list.js", () => {
-	it("renders a native list carrying the required attrs, sized from `items`", () => {
-		const app = mount(() => m(List, { renderItem: (item: string) => m("text", {}, item), items: ["a", "b", "c"] }));
-		const list = app.root.firstChild!;
-
-		expect(attrsOf(app, list)).toMatchObject({
-			"scroll-orientation": "vertical",
-			"list-type": "single",
-			"span-count": "1",
-		});
+	it("renders a native <list> with the required attrs, typed, defaulting to vertical/single/1", () => {
+		const app = mount(() => m(List, { renderItem, getItemKey, items: ["a"] }));
+		expect(app.root.tag).toBe("list");
+		expect(attrsOf(app, app.root)).toMatchObject({ "scroll-orientation": "vertical", "list-type": "single", "span-count": 1 });
 	});
 
-	it("renderItem(item, index) receives the actual item, not just the index", () => {
-		const items = ["Alpha", "Bravo", "Charlie"];
-		const app = mount(() => m(List, { renderItem: (item: string, index: number) => m("text", {}, `${index}:${item}`), items }));
-		const list = app.root.firstChild!;
-
-		requestCell(app, list, 1);
-		const listHandle = app.applier.getHandle(list._id) as any;
-		const listItem = listHandle.firstChild;
-		expect(listItem.tagName?.toLowerCase() ?? listItem.nodeName?.toLowerCase()).toBe("list-item");
-		expect(realTextOf(listItem)).toBe("1:Bravo");
+	it("scrollOrientation/listType/spanCount pass straight through", () => {
+		const app = mount(() => m(List, { renderItem, getItemKey, items: ["a"], scrollOrientation: "horizontal", listType: "waterfall", spanCount: 2 }));
+		expect(attrsOf(app, app.root)).toMatchObject({ "scroll-orientation": "horizontal", "list-type": "waterfall", "span-count": 2 });
 	});
 
-	it("growing/shrinking `items` sends the matching insertAction/removeAction, without recreating the native list", () => {
-		let items = ["a", "b", "c"];
-		const app = mount(() => m(List, { renderItem: (item: string) => m("text", {}, item), items }));
-		const list = app.root.firstChild!;
-		const createListCallsBefore = papiCalls().filter((c) => c.fn === "__CreateList").length;
-
-		items = ["a", "b", "c", "d"];
-		app.redraw();
-		let infoCall = papiCalls()
-			.filter((c) => c.fn === "__SetAttribute" && c.args[0] === app.applier.getHandle(list._id) && c.args[1] === "update-list-info")
-			.at(-1);
-		expect(infoCall?.args[2]).toEqual({ insertAction: [{ position: 3, type: "cell", "item-key": "3" }], removeAction: [], updateAction: [] });
-
-		items = ["a"];
-		app.redraw();
-		infoCall = papiCalls()
-			.filter((c) => c.fn === "__SetAttribute" && c.args[0] === app.applier.getHandle(list._id) && c.args[1] === "update-list-info")
-			.at(-1);
-		expect(infoCall?.args[2]).toEqual({ insertAction: [], removeAction: [1, 2, 3], updateAction: [] });
-
-		// Same underlying native list throughout — not torn down and rebuilt.
-		expect(papiCalls().filter((c) => c.fn === "__CreateList")).toHaveLength(createListCallsBefore);
-		expect(app.root.firstChild).toBe(list);
-	});
-
-	it("a data change is visible the next time native recycles/requests a cell", () => {
-		let items = ["a", "b", "c"];
-		const app = mount(() => m(List, { renderItem: (item: string) => m("text", {}, item), items }));
-		const list = app.root.firstChild!;
-
-		items = ["x", "y", "z"];
-		app.redraw();
-		requestCell(app, list, 0, 5);
-
-		const listHandle = app.applier.getHandle(list._id) as any;
-		expect(realTextOf(listHandle.firstChild)).toBe("x");
-	});
-
-	it("a data change refreshes an already-attached cell's content in place, without a new componentAtIndex call", () => {
-		let items = ["a", "b", "c"];
-		const app = mount(() => m(List, { renderItem: (item: string) => m("text", {}, item), items }));
-		const list = app.root.firstChild!;
-		const listHandle = app.applier.getHandle(list._id) as any;
-
-		requestCell(app, list, 0);
-		expect(realTextOf(listHandle.firstChild)).toBe("a");
-
-		items = ["z", "b", "c"];
-		app.redraw();
-		expect(realTextOf(listHandle.firstChild)).toBe("z");
-	});
-
-	it("pushes `style` onto the real native list element, not the placeholder view", () => {
-		const app = mount(() => m(List, { renderItem: (item: string) => m("text", {}, item), items: ["a"], style: { width: "100%", height: "400px" } }));
-		const list = app.root.firstChild!;
-
-		expect(styleOf(app, list)).toMatchObject({ width: "100%", height: "400px" });
-	});
-
-	it("listRef.scrollTo invokes scrollToPosition on the native list", async () => {
-		const listRef: { scrollTo?: (index: number) => Promise<unknown> } = {};
-		const app = mount(() => m(List, { renderItem: (item: string) => m("text", {}, item), items: ["a", "b"], listRef }));
-		const list = app.root.firstChild!;
-
-		await listRef.scrollTo!(1);
-
-		const handle = app.applier.getHandle(list._id);
-		const calls = (globalThis as any).__nodesRefInvokeCalls as { element: unknown; method: string; params: unknown }[];
-		const call = calls.filter((c) => c.element === handle).at(-1);
-		expect(call?.method).toBe("scrollToPosition");
-		expect(call?.params).toMatchObject({ position: 1, index: 1, useScroller: true });
-	});
-
-	it("scrollOrientation/listType/spanCount pass straight through to Op.CreateList", () => {
+	it("every other attribute and event reaches the native list, with its real type", () => {
+		const hits: unknown[] = [];
 		const app = mount(() =>
-			m(List, { renderItem: (item: string) => m("text", {}, item), items: ["a", "b"], scrollOrientation: "horizontal", listType: "flow", spanCount: 2 }),
+			m(List, {
+				renderItem,
+				getItemKey,
+				items: ["a"],
+				bounces: false,
+				"item-snap": { factor: 0, offset: 0 },
+				"lower-threshold-item-count": 2,
+				onscrolltolower: (e: any) => hits.push(e.detail),
+			}),
 		);
-		const list = app.root.firstChild!;
+		expect(attrsOf(app, app.root)).toMatchObject({ bounces: false, "item-snap": { factor: 0, offset: 0 }, "lower-threshold-item-count": 2 });
+		fire(app.root, "scrolltolower", { detail: { scrollTop: 5 } });
+		expect(hits).toEqual([{ scrollTop: 5 }]);
+	});
 
-		expect(attrsOf(app, list)).toMatchObject({
-			"scroll-orientation": "horizontal",
-			"list-type": "flow",
-			"span-count": "2",
+	it("keys items with getItemKey, and a middle insert is a single insertAction", () => {
+		let items = ["a", "b", "c"];
+		const app = mount(() => m(List, { renderItem, getItemKey, items }));
+		expect(lastListInfo(app, app.root).insertAction.map((a: any) => a["item-key"])).toEqual(["a", "b", "c"]);
+
+		items = ["a", "x", "b", "c"];
+		app.redraw();
+		expect(lastListInfo(app, app.root)).toEqual({
+			insertAction: [{ position: 1, type: "list-item", "item-key": "x" }],
+			removeAction: [],
+			updateAction: [],
 		});
+	});
+
+	it("getItemAttrs adds per-item platform info", () => {
+		const app = mount(() =>
+			m(List, { renderItem, getItemKey, items: ["h", "a"], getItemAttrs: (item: string) => (item === "h" ? { "full-span": true, "sticky-top": true } : {}) }),
+		);
+		expect(lastListInfo(app, app.root).insertAction[0]).toEqual({ position: 0, type: "list-item", "item-key": "h", "full-span": true, "sticky-top": true });
+	});
+
+	it("renderItem(item, index) content is what native attaches for that index", () => {
+		const app = mount(() => m(List, { renderItem: (item: string, index: number) => m("text", {}, `${index}:${item}`), getItemKey, items: ["Alpha", "Bravo"] }));
+		requestCell(app, app.root, 1);
+		const listHandle = app.applier.getHandle(app.root._id) as any;
+		expect(realTextOf(listHandle.firstChild)).toBe("1:Bravo");
+	});
+
+	it("a data change refreshes an already-attached item in place", () => {
+		let items = [{ id: "a", label: "one" }];
+		const app = mount(() => m(List, { renderItem: (item: any) => m("text", {}, item.label), getItemKey: (item: any) => item.id, items }));
+		requestCell(app, app.root, 0);
+		items = [{ id: "a", label: "two" }];
+		app.redraw();
+		const listHandle = app.applier.getHandle(app.root._id) as any;
+		expect(realTextOf(listHandle.firstChild)).toBe("two");
+	});
+
+	it("pushes `style` onto the native list element", () => {
+		const app = mount(() => m(List, { renderItem, getItemKey, items: ["a"], style: { width: "100%", height: "400px" } }));
+		expect(styleOf(app, app.root)).toMatchObject({ width: "100%", height: "400px" });
+	});
+
+	it("listRef exposes the four native methods plus the scrollTo shorthand", async () => {
+		const listRef: any = {};
+		const app = mount(() => m(List, { renderItem, getItemKey, items: ["a", "b"], listRef }));
+		await listRef.scrollTo(1);
+		await listRef.scrollToPosition({ position: 1, alignTo: "top", itemKey: "b" });
+		await listRef.scrollBy(100);
+		await listRef.autoScroll({ rate: "60px", start: true });
+		await listRef.getVisibleCells();
+
+		const handle = app.applier.getHandle(app.root._id);
+		const calls = ((globalThis as any).__nodesRefInvokeCalls as { element: unknown; method: string; params: unknown }[]).filter((c) => c.element === handle);
+		expect(calls.slice(-5).map((c) => c.method)).toEqual(["scrollToPosition", "scrollToPosition", "scrollBy", "autoScroll", "getVisibleCells"]);
+		expect(calls.at(-5)?.params).toMatchObject({ position: 1, index: 1, useScroller: true });
+		expect(calls.at(-3)?.params).toEqual({ offset: 100 });
+	});
+
+	it("warns once when getItemKey is missing, and falls back to index keys", () => {
+		const warn = rstest.spyOn(console, "warn").mockImplementation(() => {});
+		const app = mount(() => m(List, { renderItem, items: ["a", "b"] }));
+		app.redraw();
+		expect(warn.mock.calls.filter((c) => String(c[0]).includes("getItemKey"))).toHaveLength(1);
+		expect(lastListInfo(app, app.root).insertAction.map((a: any) => a["item-key"])).toEqual(["0", "1"]);
+		warn.mockRestore();
 	});
 
 	it("requires a renderItem and fails loudly without one", () => {

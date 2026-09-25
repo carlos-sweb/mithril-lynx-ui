@@ -33,12 +33,17 @@ describe("feed-list.js", () => {
 	it("with no refreshOptions, it's just List — no <refresh> wrapper", () => {
 		const app = mount(() => m(FeedList, { items: ["a", "b"], renderItem }));
 
-		expect(app.root.tag).not.toBe("refresh");
-		const list = app.root.firstChild!;
+		expect(app.root.tag).toBe("list");
+		const list = app.root;
 		requestCell(app, list, 0);
 		requestCell(app, list, 1);
 		expect(papiCalls().filter((c) => c.fn === "__CreateList")).toHaveLength(1);
-		expect(() => requestCell(app, list, 2)).toThrow(/out of range/);
+		// Out of range: native gets -1 (and an error is logged), never a throw
+		// from inside its synchronous callback.
+		const error = console.error;
+		console.error = () => {};
+		expect(requestCell(app, list, 2)).toBe(-1);
+		console.error = error;
 	});
 
 	it("wraps List in a native <refresh>/<refresh-header> when refreshOptions is truthy", () => {
@@ -48,7 +53,7 @@ describe("feed-list.js", () => {
 		expect(refreshView.tag).toBe("refresh");
 		expect(attrOf(app, refreshView, "enable-refresh")).toBe("true");
 		expect(refreshView.firstChild!.tag).toBe("refresh-header");
-		expect(refreshView.firstChild!.nextSibling).not.toBeUndefined(); // the placeholder view wrapping the real native list
+		expect(refreshView.firstChild!.nextSibling!.tag).toBe("list");
 	});
 
 	it("pushes <refresh>'s own measured layout size to the inner List as explicit pixels, not a percentage", async () => {
@@ -59,10 +64,8 @@ describe("feed-list.js", () => {
 		// <refresh> via its own onlayoutchange and pushes real pixels instead.
 		const app = mount(() => m(FeedList, { items: ["a"], renderItem, refreshOptions: true, style: { width: "100%", height: "260px" } }));
 		const refreshView = app.root.firstChild!;
-		// .nextSibling here is List's own placeholder <view> (see list.js's
-		// own header) — the real native list is a further child appended
-		// imperatively in List's oncreate, not List's own top-level node.
-		const list = refreshView.firstChild!.nextSibling!.firstChild!;
+		// <refresh-header> first, then List's own top-level node: the native <list>.
+		const list = refreshView.firstChild!.nextSibling!;
 
 		fire(refreshView, "layoutchange", { detail: { width: 344, height: 260 } });
 		// onlayoutchange only sets state synchronously — the redraw() it calls
@@ -120,7 +123,7 @@ describe("feed-list.js", () => {
 	it("listRef.scrollTo forwards to the underlying List's own scrollTo", async () => {
 		const listRef: { scrollTo?: (index: number) => Promise<unknown> } = {};
 		const app = mount(() => m(FeedList, { items: ["a", "b"], renderItem, listRef }));
-		const list = app.root.firstChild!;
+		const list = app.root;
 
 		await listRef.scrollTo!(1);
 

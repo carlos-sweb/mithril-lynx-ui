@@ -22,7 +22,8 @@ any new component.
 | 3 | [`papi-03-async-geometry-measurement.md`](./papi-03-async-geometry-measurement.md) | Measuring a node (`boundingClientRect`) asynchronously + handling events that arrive while measuring | Medium |
 | 4 | [`papi-04-slider-full-case.md`](./papi-04-slider-full-case.md) | Combining measurement + continuous writes in a real interactive component | Medium-high |
 | 5 | [`papi-05-native-gestures.md`](./papi-05-native-gestures.md) | Native gesture arena, worklets, PAPI callbacks | High |
-| 6 | [`papi-06-virtualized-lists.md`](./papi-06-virtualized-lists.md) | Native virtualized lists and their synchronous recycling callback | Most complex |
+| 6 | [`papi-06-virtualized-lists.md`](./papi-06-virtualized-lists.md) | Native virtualized lists — the 2.x design, superseded by 7 | Historical |
+| 7 | [`papi-07-list-redesign.md`](./papi-07-list-redesign.md) | Native `<list>` as ordinary Mithril elements (mithril-lynx 3.0.0): full attribute/event/method coverage | Most complex |
 
 Each manual can be read on its own, but the 1→6 order is recommended: each
 case reuses the vocabulary of the previous one (manual 4 is a case study
@@ -41,8 +42,8 @@ documented as an open design rather than a closed recipe).
 | `src/swipe-action/swipe-action.js` | 1, 2, 3, 5 | Measurement + writes + native gesture |
 | `src/swiper/swiper.js` | 2, 5 | Style writes + native gesture with axis-lock |
 | `src/sheet/sheet.js` | 2, 5 | Reference case for manual 5 (drag-to-dismiss) |
-| `src/list/list.js` | 1, 2, 6 | Reference case for manual 6 |
-| `src/feed-list/feed-list.js` | 1, 6 | Composes `List` (manual 6) + refresh invocation (manual 1) |
+| `src/list/list.js` | 1, 7 | Reference case for manual 7 |
+| `src/feed-list/feed-list.js` | 1, 7 | Composes `List` (manual 7) + refresh invocation (manual 1) |
 | `src/drawer/drawer.js` | 5 (indirect) | No PAPI of its own — wraps `Sheet` |
 | `src/form/form.js` | 1 (indirect) | No PAPI of its own — uses `Input` internally |
 | `src/input-otp/input-otp.js` | 1 (indirect) | No PAPI of its own — uses `Input` internally |

@@ -22,31 +22,12 @@
 // native's own `<refresh>` element already solves for the common case is a
 // cost this project isn't paying speculatively.
 //
-// A SECOND scope cut, unrelated to the above: the infinite-scroll "load
-// more" footer sentinel this file used to ship (a footer item whose own
-// onuiappear/onuidisappear triggered `onLoadMore()`) is not (re)built here.
-// `./list.js`'s cell content now renders on the background thread through
-// the app's own document (mithril-lynx's list-cell.js), so an event handler
-// inside a cell CAN reach this app's own state — the constraint that used
-// to block a footer sentinel from calling `onLoadMore()` is gone. Rebuilding
-// the sentinel itself is separate, not-yet-done work; until then, an app
-// wanting "load more" needs its own mechanism outside the list's own cell
-// content (e.g. a scroll-position listener on an ancestor `<scroll-view>`,
-// or a manual "load more" button below the list).
-//
-// Known, real, core-level nuance worth knowing before wiring
-// `onStartRefresh`: `./list.js`'s underlying native list signals a COUNT
-// INCREASE as cells inserted at the END (`sendListInfo`'s own
-// `position: count + i`), regardless of where the new items actually are —
-// unchanged from the pre-migration version of this file. Every currently
-// visible cell's CONTENT does stay correct even when new items are
-// PREPENDED (list-support.js's refreshAttachedCells re-flushes every
-// attached cell's content on any items change, not just on count changes),
-// but the native insert-position signal itself still assumes append. A
-// refresh handler that wants new items to appear at the top and get the
-// insert ANIMATION/positioning right too still needs to replace the whole
-// `items` array with a fresh reference; this file doesn't attempt to work
-// around the position-signal mismatch beyond that.
+// "Load more" needs no sentinel item: `<list>`'s own
+// `lower-threshold-item-count` + `onscrolltolower` (passed straight through
+// to List, like every other native list attribute and event) is the native
+// mechanism for it. Prepending new items after a refresh is correct too —
+// List keys its items (`getItemKey`), so native receives the real insert
+// positions and animates them where they actually are.
 
 import m from "mithril-runtime";
 import { redraw } from "mithril-lynx/mount-redraw";
