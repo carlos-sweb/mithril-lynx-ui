@@ -94,7 +94,8 @@ when the animation ends if their elements were detached. mithril-lynx
 therefore leaves removed items attached on such lists (no crash, but their
 elements accumulate as orphans, and stale cells were seen on screen) and
 logs a warning. Don't use `update-animation` in production until this is
-solved.
+solved. Full evidence, hypotheses and next steps: mithril-lynx's
+[`UPDATE_ANIMATION_GAP.md`](https://github.com/carlos-sweb/mithril-lynx/blob/main/UPDATE_ANIMATION_GAP.md).
 
 Native also logs `[List] Fail to erase item holder at pos = N` (non-fatal)
 during bulk removals, with or without mithril-lynx detaching anything.
