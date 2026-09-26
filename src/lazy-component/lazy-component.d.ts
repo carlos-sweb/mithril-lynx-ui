@@ -4,6 +4,8 @@
 import type { Component } from "mithril-runtime";
 
 export interface LazyComponentAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   /** Unique exposure id — must be unique across the whole page. */

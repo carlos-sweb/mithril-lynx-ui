@@ -53,7 +53,7 @@
 
 import m from "mithril-runtime";
 import { SheetBackdrop, SheetClose, SheetContent, SheetRoot, SheetTrigger, SheetView } from "../sheet/sheet.js";
-import { cx } from "../internal/cx.js";
+import { cx, classOf } from "../internal/cx.js";
 
 export const DrawerRoot = {
 	view: (vnode) => m(SheetRoot, Object.assign({ side: "left" }, vnode.attrs), vnode.children),
@@ -65,14 +65,14 @@ export const DrawerView = SheetView;
 
 export const DrawerBackdrop = {
 	view(vnode) {
-		const { className } = vnode.attrs;
-		return m(SheetBackdrop, Object.assign({}, vnode.attrs, { className: cx(className, { "ui-drawer-backdrop": true }) }), vnode.children);
+		// `class` is folded into `className` here, so SheetBackdrop doesn't add it twice.
+		return m(SheetBackdrop, Object.assign({}, vnode.attrs, { class: undefined, className: cx(classOf(vnode.attrs), { "ui-drawer-backdrop": true }) }), vnode.children);
 	},
 };
 
 export const DrawerContent = {
 	view(vnode) {
-		const { className } = vnode.attrs;
-		return m(SheetContent, Object.assign({}, vnode.attrs, { className: cx(className, { "ui-drawer-content": true }) }), vnode.children);
+		// `class` is folded into `className` here, so SheetContent doesn't add it twice.
+		return m(SheetContent, Object.assign({}, vnode.attrs, { class: undefined, className: cx(classOf(vnode.attrs), { "ui-drawer-content": true }) }), vnode.children);
 	},
 };

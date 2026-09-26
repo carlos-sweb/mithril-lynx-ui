@@ -47,7 +47,7 @@
 // would be ambiguous about which one a prop means.
 
 import m from "mithril-runtime";
-import { cx } from "../internal/cx.js";
+import { cx, classOf } from "../internal/cx.js";
 
 function px(value) {
 	return value == null ? undefined : `${value}px`;
@@ -61,7 +61,8 @@ function directionValue(direction, reverse) {
 /** The base primitive every other export here is built from — a plain `<view>` taking only class/style, no arrangement opinion of its own. */
 export const Box = {
 	view(vnode) {
-		const { className, style, boxProps } = vnode.attrs;
+		const { style, boxProps } = vnode.attrs;
+		const className = classOf(vnode.attrs, boxProps);
 		return m("view", Object.assign({}, boxProps, { class: cx(className), style }), vnode.children);
 	},
 };
@@ -80,10 +81,10 @@ export const Stack = {
 			columnGap,
 			align,
 			justify,
-			className,
 			style,
 			stackProps,
 		} = vnode.attrs;
+		const className = classOf(vnode.attrs, stackProps);
 
 		const dirValue = directionValue(direction, reverse);
 		const computed = wrap
@@ -113,7 +114,8 @@ export const Column = {
 /** Centers its single child on both axes. */
 export const Center = {
 	view(vnode) {
-		const { className, style, centerProps } = vnode.attrs;
+		const { style, centerProps } = vnode.attrs;
+		const className = classOf(vnode.attrs, centerProps);
 		return m(
 			"view",
 			Object.assign({}, centerProps, {
@@ -134,7 +136,8 @@ export const Center = {
 // (linear) Stack or a `wrap`-enabled (flex) one with no extra prop needed.
 export const Spacer = {
 	view(vnode) {
-		const { className, style, spacerProps } = vnode.attrs;
+		const { style, spacerProps } = vnode.attrs;
+		const className = classOf(vnode.attrs, spacerProps);
 		return m("view", Object.assign({}, spacerProps, { class: cx(className), style: Object.assign({ flex: "1", "linear-weight": 1 }, style) }));
 	},
 };
@@ -151,7 +154,8 @@ export const Spacer = {
 // establish the container's own size the way normal children would.
 export const ZStack = {
 	view(vnode) {
-		const { className, style, zStackProps } = vnode.attrs;
+		const { style, zStackProps } = vnode.attrs;
+		const className = classOf(vnode.attrs, zStackProps);
 		const children = vnode.children || [];
 		return m(
 			"view",
@@ -183,10 +187,10 @@ export const Grid = {
 			alignContent,
 			justifyItems,
 			alignItems,
-			className,
 			style,
 			gridProps,
 		} = vnode.attrs;
+		const className = classOf(vnode.attrs, gridProps);
 
 		const computed = { display: "grid" };
 		const cols = trackList(columns);
@@ -218,7 +222,8 @@ export const Grid = {
 // given SDK version.
 export const GridItem = {
 	view(vnode) {
-		const { colStart, colEnd, colSpan, rowStart, rowEnd, rowSpan, className, style, gridItemProps } = vnode.attrs;
+		const { colStart, colEnd, colSpan, rowStart, rowEnd, rowSpan, style, gridItemProps } = vnode.attrs;
+		const className = classOf(vnode.attrs, gridItemProps);
 		const computed = {};
 		if (colStart != null) computed["grid-column-start"] = colStart;
 		if (colEnd != null) computed["grid-column-end"] = colEnd;
@@ -234,7 +239,8 @@ export const GridItem = {
 /** A thin line — `orientation: "horizontal"` (default, fills width) or `"vertical"` (fills height). Needs no default look on its own; `class: "ui-divider"` (css/layout.css) gives it a real, visible color. */
 export const Divider = {
 	view(vnode) {
-		const { orientation = "horizontal", thickness = 1, className, style, dividerProps } = vnode.attrs;
+		const { orientation = "horizontal", thickness = 1, style, dividerProps } = vnode.attrs;
+		const className = classOf(vnode.attrs, dividerProps);
 		const horizontal = orientation !== "vertical";
 		const computed = horizontal ? { width: "100%", height: px(thickness) } : { width: px(thickness), height: "100%" };
 		return m(
@@ -250,7 +256,8 @@ export const Divider = {
 /** Reserves space by aspect ratio (`ratio = width / height`) — image/video/card frames. `width: 100%` by default since `aspect-ratio` alone needs at least one definite dimension to derive the other from. */
 export const AspectRatio = {
 	view(vnode) {
-		const { ratio = 1, className, style, aspectRatioProps } = vnode.attrs;
+		const { ratio = 1, style, aspectRatioProps } = vnode.attrs;
+		const className = classOf(vnode.attrs, aspectRatioProps);
 		return m(
 			"view",
 			Object.assign({}, aspectRatioProps, { class: cx(className), style: Object.assign({ "aspect-ratio": String(ratio), width: "100%" }, style) }),

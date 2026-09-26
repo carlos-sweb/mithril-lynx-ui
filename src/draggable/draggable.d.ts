@@ -18,6 +18,8 @@ export interface DraggableRef {
 }
 
 export interface DraggableAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   /** A plain object to receive the imperative API on mount. */

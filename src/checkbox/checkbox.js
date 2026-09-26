@@ -14,7 +14,7 @@
 
 import m from "mithril-runtime";
 import { Button, useButtonState } from "../button/button.js";
-import { cx } from "../internal/cx.js";
+import { cx, classOf } from "../internal/cx.js";
 import { renderChildren } from "../internal/press.js";
 import { createScope } from "../scope/scope.js";
 
@@ -27,13 +27,13 @@ export const Checkbox = {
 
 	view(vnode) {
 		const {
-			className,
 			style,
 			disabled = false,
 			indeterminate = false,
 			onChange,
 			checkboxProps,
 		} = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const isControlled = vnode.attrs.checked !== undefined;
 		const checked = isControlled ? vnode.attrs.checked === true : vnode.state.uncontrolledChecked;
 
@@ -69,7 +69,8 @@ export const Checkbox = {
  */
 export const CheckboxIndicator = {
 	view(vnode) {
-		const { className, style, forceMount = false } = vnode.attrs;
+		const { style, forceMount = false } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const { checked = false, indeterminate = false } = checkboxScope.useScope() || {};
 		const { active, disabled } = useButtonState();
 

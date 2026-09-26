@@ -37,7 +37,7 @@
 import m from "mithril-runtime";
 import { redraw } from "mithril-lynx/mount-redraw";
 import { Button } from "../button/button.js";
-import { cx } from "../internal/cx.js";
+import { cx, classOf } from "../internal/cx.js";
 import { renderChildren } from "../internal/press.js";
 import { nativeBool } from "../internal/native.js";
 import { PresenceState, Presence, resolveAnimationStatus, usePresence } from "../presence/presence.js";
@@ -134,7 +134,8 @@ function dialogButtonView(vnode, changeShow) {
 	if (ctx == null) {
 		throw new Error(`mithril-lynx-ui: <Dialog${changeShow ? "Trigger" : "Close"}> must be used inside a <DialogRoot>`);
 	}
-	const { disabled = false, style, className, transition } = vnode.attrs;
+	const { disabled = false, style, transition } = vnode.attrs;
+	const className = classOf(vnode.attrs);
 	const busy = resolveBusyState(ctx.groupState);
 	const status = resolveAnimationStatus(ctx.groupState, false, false);
 	const presenceClassName = dialogClasses(status, className, transition);
@@ -165,7 +166,8 @@ export const DialogBackdrop = {
 		if (api == null) throw new Error("mithril-lynx-ui: <DialogBackdrop> must be used inside a <DialogView>");
 		const ctx = dialogScope.useScope();
 		if (ctx == null) throw new Error("mithril-lynx-ui: <DialogBackdrop> must be used inside a <DialogRoot>");
-		const { className, style, clickToClose = true, transition, dialogBackdropProps, onClick } = vnode.attrs;
+		const { style, clickToClose = true, transition, dialogBackdropProps, onClick } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const presenceClassName = dialogClasses(api.status, className, transition);
 		const busy = resolveBusyState(ctx.groupState);
 
@@ -198,7 +200,8 @@ export const DialogContent = {
 	view(vnode) {
 		const api = usePresence();
 		if (api == null) throw new Error("mithril-lynx-ui: <DialogContent> must be used inside a <DialogView>");
-		const { className, style, transition, dialogContentProps } = vnode.attrs;
+		const { style, transition, dialogContentProps } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const presenceClassName = dialogClasses(api.status, className, transition);
 
 		return m(
@@ -232,7 +235,8 @@ export const DialogView = {
 		const s = vnode.state;
 		const ctx = dialogScope.useScope();
 		if (ctx == null) throw new Error("mithril-lynx-ui: <DialogView> must be used inside a <DialogRoot>");
-		const { className, style, transition, dialogViewProps } = vnode.attrs;
+		const { style, transition, dialogViewProps } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const { show, forceMount } = ctx;
 
 		const children = Array.isArray(vnode.children) ? vnode.children : [vnode.children];

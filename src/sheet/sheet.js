@@ -65,7 +65,7 @@ import { redraw } from "mithril-lynx/mount-redraw";
 import { ensureId, createRef } from "../internal/native-ref.js";
 import { registerGesture } from "../internal/gesture.js";
 import { Button } from "../button/button.js";
-import { cx } from "../internal/cx.js";
+import { cx, classOf } from "../internal/cx.js";
 import { renderChildren } from "../internal/press.js";
 import { PresenceState, Presence, resolveAnimationStatus, usePresence } from "../presence/presence.js";
 import { createScope } from "../scope/scope.js";
@@ -189,7 +189,8 @@ function sheetButtonView(vnode, changeShow) {
 	if (ctx == null) {
 		throw new Error(`mithril-lynx-ui: <Sheet${changeShow ? "Trigger" : "Close"}> must be used inside a <SheetRoot>`);
 	}
-	const { disabled = false, style, className, transition } = vnode.attrs;
+	const { disabled = false, style, transition } = vnode.attrs;
+	const className = classOf(vnode.attrs);
 	const busy = resolveBusyState(ctx.groupState);
 	const status = resolveAnimationStatus(ctx.groupState, false, false);
 	const presenceClassName = sheetClasses(status, className, transition, ctx.resolvedSide);
@@ -220,7 +221,8 @@ export const SheetBackdrop = {
 		if (api == null) throw new Error("mithril-lynx-ui: <SheetBackdrop> must be used inside a <SheetView>");
 		const ctx = sheetScope.useScope();
 		if (ctx == null) throw new Error("mithril-lynx-ui: <SheetBackdrop> must be used inside a <SheetRoot>");
-		const { className, style, clickToClose = true, transition, sheetBackdropProps, onClick } = vnode.attrs;
+		const { style, clickToClose = true, transition, sheetBackdropProps, onClick } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const presenceClassName = sheetClasses(api.status, className, transition, ctx.resolvedSide);
 		const busy = resolveBusyState(ctx.groupState);
 
@@ -251,7 +253,8 @@ export const SheetBackdrop = {
 
 export const SheetHandle = {
 	view(vnode) {
-		const { className, style } = vnode.attrs;
+		const { style } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		return m("view", { class: cx(className, { "ui-sheet-handle": true }), style }, vnode.children);
 	},
 };
@@ -305,7 +308,8 @@ export const SheetContent = {
 		const ctx = sheetScope.useScope();
 		if (ctx == null) throw new Error("mithril-lynx-ui: <SheetContent> must be used inside a <SheetRoot>");
 		s.ctx = ctx;
-		const { className, style, transition, innerClassName, innerStyle, sheetContentProps } = vnode.attrs;
+		const { style, transition, innerClassName, innerStyle, sheetContentProps } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const presenceClassName = sheetClasses(api.status, className, transition, ctx.resolvedSide);
 		const positionStyle = sheetPositionStyle(ctx.resolvedSide);
 
@@ -386,7 +390,8 @@ export const SheetView = {
 		const s = vnode.state;
 		const ctx = sheetScope.useScope();
 		if (ctx == null) throw new Error("mithril-lynx-ui: <SheetView> must be used inside a <SheetRoot>");
-		const { className, style, sheetViewProps } = vnode.attrs;
+		const { style, sheetViewProps } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const { show, forceMount } = ctx;
 
 		const children = Array.isArray(vnode.children) ? vnode.children : [vnode.children];

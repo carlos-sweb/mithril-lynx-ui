@@ -15,7 +15,7 @@
 // {checked, active, disabled}, same as lynx-ui's children-as-function.
 
 import m from "mithril-runtime";
-import { cx } from "../internal/cx.js";
+import { cx, classOf } from "../internal/cx.js";
 import { isActive, pressAttrs, renderChildren } from "../internal/press.js";
 import { createScope } from "../scope/scope.js";
 
@@ -35,7 +35,8 @@ export const Switch = {
 	},
 
 	view(vnode) {
-		const { className, style, disabled = false, onChange, switchProps } = vnode.attrs;
+		const { style, disabled = false, onChange, switchProps } = vnode.attrs;
+		const className = classOf(vnode.attrs, switchProps);
 		const isControlled = vnode.attrs.checked !== undefined;
 		const checked = isControlled ? vnode.attrs.checked === true : vnode.state.uncontrolledChecked;
 		const active = isActive(vnode.state, disabled);
@@ -62,7 +63,7 @@ function subComponent(vnode) {
 	const api = switchScope.useScope() || { checked: false, active: false, disabled: false };
 	return m(
 		"view",
-		{ class: cx(vnode.attrs.className, stateClasses(api)), style: vnode.attrs.style },
+		{ class: cx(classOf(vnode.attrs), stateClasses(api)), style: vnode.attrs.style },
 		vnode.children,
 	);
 }

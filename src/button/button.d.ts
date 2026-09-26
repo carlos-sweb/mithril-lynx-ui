@@ -11,6 +11,8 @@ export interface ButtonRenderProps {
 }
 
 export interface ButtonAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   /** Defaults to false. When true the button never activates and never fires onClick. */

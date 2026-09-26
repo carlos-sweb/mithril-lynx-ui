@@ -27,6 +27,7 @@
 
 import m from "mithril-runtime";
 import { ensureId, createRef } from "../internal/native-ref.js";
+import { classOf } from "../internal/cx.js";
 
 /**
  * The imperative API, bound to one native list id.
@@ -66,7 +67,9 @@ export const List = {
 			getItemAttrs,
 			listRef,
 			id: _id,
-			className,
+			// Kept out of `listAttrs`: both are merged by classOf() below.
+			class: _class,
+			className: _className,
 			scrollOrientation = "vertical",
 			listType = "single",
 			spanCount = 1,
@@ -74,6 +77,7 @@ export const List = {
 			crossAxisGap = 0,
 			...listAttrs
 		} = vnode.attrs;
+		const className = classOf(vnode.attrs);
 
 		if (typeof renderItem !== "function") {
 			throw new Error("mithril-lynx-ui: <List> requires a `renderItem` function.");

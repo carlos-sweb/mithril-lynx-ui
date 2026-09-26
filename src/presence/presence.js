@@ -28,7 +28,7 @@
 
 import m from "mithril-runtime";
 import { redraw } from "mithril-lynx/mount-redraw";
-import { cx } from "../internal/cx.js";
+import { cx, classOf } from "../internal/cx.js";
 import { delayFrames } from "../internal/frames.js";
 import { renderChildren } from "../internal/press.js";
 import { createScope } from "../scope/scope.js";
@@ -388,7 +388,7 @@ export const PresenceContent = {
 		return m(
 			"view",
 			Object.assign({}, api.animationAttrs, {
-				class: presenceClasses(api.status, vnode.attrs.className),
+				class: presenceClasses(api.status, classOf(vnode.attrs)),
 				style: vnode.attrs.style,
 			}),
 			vnode.children,

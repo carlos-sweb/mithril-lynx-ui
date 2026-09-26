@@ -24,6 +24,8 @@ export interface FormRootAttrs {
 }
 
 interface FormFieldCommonAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   name: string;
@@ -36,6 +38,8 @@ export type FormFieldAttrs =
   | (FormFieldCommonAttrs & { as: "RadioGroupRoot" });
 
 export interface FormSubmitButtonAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   disabled?: boolean;

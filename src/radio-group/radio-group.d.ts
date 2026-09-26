@@ -19,6 +19,8 @@ export interface RadioGroupAttrs {
 }
 
 export interface RadioAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   /** Identifies this Radio within its group. Selected when it equals the group's value. */
@@ -30,6 +32,8 @@ export interface RadioAttrs {
 }
 
 export interface RadioIndicatorAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   forceMount?: boolean;

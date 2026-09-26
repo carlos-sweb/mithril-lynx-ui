@@ -16,6 +16,8 @@ export interface InputRef {
 
 export interface FieldAttrs {
   id?: string;
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   placeholder?: string;

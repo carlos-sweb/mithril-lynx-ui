@@ -23,6 +23,8 @@ export interface DialogRootAttrs {
 }
 
 interface DialogButtonAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   disabled?: boolean;
@@ -36,6 +38,8 @@ export type DialogTriggerAttrs = DialogButtonAttrs;
 export type DialogCloseAttrs = DialogButtonAttrs;
 
 export interface DialogViewAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   transition?: boolean;
@@ -56,6 +60,8 @@ export interface DialogViewAttrs {
 }
 
 export interface DialogBackdropAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   transition?: boolean;
@@ -67,6 +73,8 @@ export interface DialogBackdropAttrs {
 }
 
 export interface DialogContentAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   transition?: boolean;

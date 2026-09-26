@@ -33,6 +33,7 @@ import m from "mithril-runtime";
 import { redraw } from "mithril-lynx/mount-redraw";
 import { ensureId, createRef } from "../internal/native-ref.js";
 import { nativeBool } from "../internal/native.js";
+import { classOf } from "../internal/cx.js";
 import { List } from "../list/list.js";
 
 function detailOf(e) {
@@ -56,7 +57,8 @@ export const FeedList = {
 
 	view(vnode) {
 		const s = vnode.state;
-		const { items = [], renderItem, className, style, listId = "feedList", refreshOptions = false, listRef, ...listAttrs } = vnode.attrs;
+		const { items = [], renderItem, class: _class, className: _className, style, listId = "feedList", refreshOptions = false, listRef, ...listAttrs } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 
 		const refreshProps = typeof refreshOptions === "object" ? refreshOptions : {};
 		const enableRefresh = typeof refreshOptions === "object" ? refreshOptions.enableRefresh === true : refreshOptions === true;

@@ -38,6 +38,8 @@ export interface SheetRootAttrs {
 }
 
 interface SheetButtonAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   disabled?: boolean;
@@ -51,6 +53,8 @@ export type SheetTriggerAttrs = SheetButtonAttrs;
 export type SheetCloseAttrs = SheetButtonAttrs;
 
 export interface SheetViewAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   /** Spread onto the underlying view — z-index, native props, etc. */
@@ -60,6 +64,8 @@ export interface SheetViewAttrs {
 }
 
 export interface SheetBackdropAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   transition?: boolean;
@@ -71,6 +77,8 @@ export interface SheetBackdropAttrs {
 }
 
 export interface SheetContentAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   transition?: boolean;
@@ -83,6 +91,8 @@ export interface SheetContentAttrs {
 }
 
 export interface SheetHandleAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   children?: unknown;

@@ -90,7 +90,7 @@ import m from "mithril-runtime";
 import { redraw } from "mithril-lynx/mount-redraw";
 import { ensureId, createRef } from "../internal/native-ref.js";
 import { Button } from "../button/button.js";
-import { cx } from "../internal/cx.js";
+import { cx, classOf } from "../internal/cx.js";
 import { requestFrame } from "../internal/frames.js";
 import { PresenceState, Presence, resolveAnimationStatus, usePresence } from "../presence/presence.js";
 import { createScope } from "../scope/scope.js";
@@ -236,7 +236,8 @@ export const PopoverTrigger = {
 		const ctx = popoverScope.useScope();
 		if (ctx == null) throw new Error("mithril-lynx-ui: <PopoverTrigger> must be used inside a <PopoverRoot>");
 		vnode.state.ctx = ctx;
-		const { style, className, disabled = false, transition, onClick, buttonProps } = vnode.attrs;
+		const { style, disabled = false, transition, onClick, buttonProps } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const busy = resolveBusyState(ctx.state);
 		const presenceClassName = popoverClasses(statusOf(ctx.state), className, transition);
 
@@ -281,7 +282,8 @@ export const PopoverAnchor = {
 		if (ctx == null) throw new Error("mithril-lynx-ui: <PopoverAnchor> must be used inside a <PopoverRoot>");
 		vnode.state.ctx = ctx;
 		ctx.hasAnchor = true;
-		const { style, className } = vnode.attrs;
+		const { style } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		return m("view", { id: vnode.state.refId, class: className, style }, vnode.children);
 	},
 
@@ -304,7 +306,8 @@ export const PopoverBackdrop = {
 		const mounted = ctx.state !== PresenceState.Left || ctx.forceMount === true;
 		if (!mounted) return null;
 
-		const { className, style, transition, onClick, popoverBackdropProps } = vnode.attrs;
+		const { style, transition, onClick, popoverBackdropProps } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const presenceClassName = popoverClasses(statusOf(ctx.state), className, transition);
 		const busy = resolveBusyState(ctx.state);
 
@@ -374,7 +377,8 @@ const PopoverOverlayInternal = {
 		if (api == null) throw new Error("mithril-lynx-ui: <PopoverPositioner> must be used inside a <PopoverRoot>");
 		const ctx = popoverScope.useScope();
 		s.ctx = ctx;
-		const { style, className, transition, popoverPositionerProps } = vnode.attrs;
+		const { style, transition, popoverPositionerProps } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const presenceClassName = popoverClasses(api.status, className, transition);
 		const coords = ctx.floatingCoords;
 
@@ -482,7 +486,8 @@ export const PopoverPositioner = {
 		// measuring zero) — PopoverOverlayInternal was rendering with
 		// vnode.attrs.children === undefined the whole time, i.e. no real
 		// content at all, not a sizing/positioning bug.
-		const { placement = "bottom", placementOffset = 0, style, className, transition, popoverPositionerProps } = vnode.attrs;
+		const { placement = "bottom", placementOffset = 0, style, transition, popoverPositionerProps } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const children = vnode.children;
 
 		return m(
@@ -509,7 +514,8 @@ export const PopoverContent = {
 	view(vnode) {
 		const api = usePresence();
 		if (api == null) throw new Error("mithril-lynx-ui: <PopoverContent> must be used inside a <PopoverPositioner>");
-		const { className, style, transition, popoverContentProps } = vnode.attrs;
+		const { style, transition, popoverContentProps } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const presenceClassName = popoverClasses(api.status, className, transition);
 
 		return m(
@@ -536,7 +542,8 @@ export const PopoverArrow = {
 		if (ctx == null) throw new Error("mithril-lynx-ui: <PopoverArrow> must be used inside a <PopoverRoot>");
 		const placementCtx = popoverPlacementScope.useScope();
 		const side = placementCtx ? placementCtx.side : "bottom";
-		const { size = 8, color = "black", className, style, transition } = vnode.attrs;
+		const { size = 8, color = "black", style, transition } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const presenceClassName = popoverClasses(statusOf(ctx.state), className, transition);
 		const crossAxisProp = side === "top" || side === "bottom" ? "left" : "top";
 

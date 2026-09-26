@@ -10,6 +10,8 @@ export interface CheckboxRenderProps {
 }
 
 export interface CheckboxAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   /** Supplying this makes the Checkbox controlled; `defaultChecked` is then ignored. */
@@ -24,6 +26,8 @@ export interface CheckboxAttrs {
 }
 
 export interface CheckboxIndicatorAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   /** Render children even when neither checked nor indeterminate. Defaults to false. */

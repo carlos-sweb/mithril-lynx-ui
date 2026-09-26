@@ -12,6 +12,8 @@ export interface SwitchRenderProps {
 }
 
 export interface SwitchAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   /** Supplying this makes the Switch controlled; `defaultChecked` is then ignored. */
@@ -26,6 +28,8 @@ export interface SwitchAttrs {
 }
 
 export interface SwitchPartAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
 }

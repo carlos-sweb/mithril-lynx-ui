@@ -8,6 +8,8 @@ type Align = "start" | "end" | "center" | "flex-start" | "flex-end" | "stretch" 
 type Justify = "start" | "end" | "center" | "flex-start" | "flex-end" | "space-between" | "space-around" | "space-evenly";
 
 export interface BoxAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: StyleAttrs;
   /** Extra raw <view> attributes, spread onto the root element. */
@@ -17,6 +19,8 @@ export interface BoxAttrs {
 export declare const Box: Component<BoxAttrs>;
 
 export interface StackAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: StyleAttrs;
   /** Defaults to "column". */
@@ -43,6 +47,8 @@ export declare const Row: Component<Omit<StackAttrs, "direction">>;
 export declare const Column: Component<Omit<StackAttrs, "direction">>;
 
 export interface CenterAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: StyleAttrs;
   centerProps?: Record<string, unknown>;
@@ -52,6 +58,8 @@ export interface CenterAttrs {
 export declare const Center: Component<CenterAttrs>;
 
 export interface SpacerAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: StyleAttrs;
   spacerProps?: Record<string, unknown>;
@@ -61,6 +69,8 @@ export interface SpacerAttrs {
 export declare const Spacer: Component<SpacerAttrs>;
 
 export interface ZStackAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   /** The container needs an explicit width/height here (or from a non-absolutely-positioned sibling) — see the .js file's own header for why. */
   style?: StyleAttrs;
@@ -71,6 +81,8 @@ export interface ZStackAttrs {
 export declare const ZStack: Component<ZStackAttrs>;
 
 export interface GridAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: StyleAttrs;
   /** A track count (shorthand for `repeat(n, 1fr)`) or a raw `grid-template-columns` string. */
@@ -98,6 +110,8 @@ export interface GridAttrs {
 export declare const Grid: Component<GridAttrs>;
 
 export interface GridItemAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: StyleAttrs;
   /** Explicit grid line number — the docs-verified placement path. */
@@ -116,6 +130,8 @@ export interface GridItemAttrs {
 export declare const GridItem: Component<GridItemAttrs>;
 
 export interface DividerAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: StyleAttrs;
   /** Defaults to "horizontal" (fills width). "vertical" fills height instead. */
@@ -128,6 +144,8 @@ export interface DividerAttrs {
 export declare const Divider: Component<DividerAttrs>;
 
 export interface AspectRatioAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: StyleAttrs;
   /** width / height. Defaults to 1 (square). */

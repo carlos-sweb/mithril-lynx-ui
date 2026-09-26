@@ -33,7 +33,7 @@
 
 import m from "mithril-runtime";
 import { ensureId, createRef } from "../internal/native-ref.js";
-import { cx } from "../internal/cx.js";
+import { cx, classOf } from "../internal/cx.js";
 
 const MIN_INT = Number.MIN_SAFE_INTEGER;
 const MAX_INT = Number.MAX_SAFE_INTEGER;
@@ -106,7 +106,8 @@ export const Draggable = {
 
 	view(vnode) {
 		const s = vnode.state;
-		const { className, style, enableDragging = true, resetOnEnd = false, trigger = "longpress" } = vnode.attrs;
+		const { style, enableDragging = true, resetOnEnd = false, trigger = "longpress" } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 
 		const setTransform = (x, y) => writeTransform(s, x, y);
 

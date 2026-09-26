@@ -41,7 +41,7 @@
 
 import m from "mithril-runtime";
 import { redraw } from "mithril-lynx/mount-redraw";
-import { cx } from "../internal/cx.js";
+import { cx, classOf } from "../internal/cx.js";
 import { delayFrames } from "../internal/frames.js";
 import { nativeBool } from "../internal/native.js";
 import { Input } from "../input/input.js";
@@ -164,12 +164,12 @@ export const InputOTP = {
 			value,
 			disabled = false,
 			invalid = false,
-			className,
 			style,
 			onFocus,
 			onBlur,
 			inputProps,
 		} = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		// autoFocus itself is only read in oncreate, not here.
 		// Positional children (m(InputOTP, attrs, slot1, slot2, ...)) land on
 		// vnode.children, a property separate from vnode.attrs — not something
@@ -311,7 +311,8 @@ export const InputOTP = {
 export const InputOTPSlot = {
 	view(vnode) {
 		const context = useInputOTPContext();
-		const { index, className, style } = vnode.attrs;
+		const { index, style } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const { value, length, focused, complete, disabled, invalid } = context;
 
 		const char = value[index];

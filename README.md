@@ -59,6 +59,22 @@ Unlike lynx-ui, this package also ships an *optional* default look built purely 
 per call site with `ui-button`, `ui-switch`, `ui-checkbox`, `ui-radio` (and their part classes). Leave
 those classes off and you get the same unstyled primitives lynx-ui gives you.
 
+### `class` or `className`
+
+Pass classes the Mithril way or the lynx-ui way — both work, on every component, and are combined when
+you give both:
+
+```js
+m("view", { class: "principal" }, …)            // an element, as always
+m(Button, { class: "principal" }, …)            // a component: Mithril style
+m(Button, { className: "principal" }, …)        // a component: lynx-ui style
+m(Button, { class: "a", className: "b" }, …)    // → class "a b" (+ the component's state classes)
+```
+
+A class set inside a component's raw attribute bag (`boxProps`, `inputProps`, `buttonProps`, …) is kept
+too. Components that render no element of their own — `RadioGroup`, `FormRoot`, the `*Root` parts of
+Dialog, Sheet, Drawer and Popover — have nothing to put a class on; style their parts instead.
+
 ### Controlled and uncontrolled
 
 Same rule as lynx-ui: pass `checked` / `value` and the component is controlled (its `default*` prop is

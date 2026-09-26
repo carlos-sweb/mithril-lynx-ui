@@ -20,6 +20,8 @@ export interface SortableRootAttrs<T> {
 }
 
 export interface SortableItemAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   sortingKey: string;

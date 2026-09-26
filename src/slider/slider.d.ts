@@ -21,6 +21,8 @@ export interface SliderRef {
 }
 
 export interface SliderRootAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   /** Supplying this makes the Slider controlled; `defaultValue` is then ignored. */
@@ -39,6 +41,8 @@ export interface SliderRootAttrs {
 }
 
 export interface SliderPartAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
 }

@@ -27,7 +27,7 @@
 // works from the moment the component is created.
 
 import m from "mithril-runtime";
-import { cx } from "../internal/cx.js";
+import { cx, classOf } from "../internal/cx.js";
 import { nativeBool } from "../internal/native.js";
 
 function detailOf(event) {
@@ -73,7 +73,6 @@ function fieldComponent(tag) {
 
 		view(vnode) {
 			const {
-				className,
 				style,
 				placeholder,
 				readonly = false,
@@ -90,6 +89,7 @@ function fieldComponent(tag) {
 				onSelectionChange,
 				inputProps,
 			} = vnode.attrs;
+			const className = classOf(vnode.attrs, inputProps);
 
 			const attrs = Object.assign({}, inputProps, {
 				id: vnode.attrs.id,

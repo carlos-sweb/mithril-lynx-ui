@@ -99,7 +99,7 @@ import m from "mithril-runtime";
 import { redraw } from "mithril-lynx/mount-redraw";
 import { ensureId, createRef } from "../internal/native-ref.js";
 import { registerGesture } from "../internal/gesture.js";
-import { cx } from "../internal/cx.js";
+import { cx, classOf } from "../internal/cx.js";
 import { nativeBool } from "../internal/native.js";
 
 function clamp(value, min, max) {
@@ -271,11 +271,11 @@ export const Swiper = {
 			itemHeight,
 			containerWidth = itemWidth,
 			spaceBetween = 0,
-			className,
 			style,
 			trackClassName,
 			trackStyle,
 		} = vnode.attrs;
+		const className = classOf(vnode.attrs);
 
 		const trackChildren = items.map((item, index) =>
 			m(

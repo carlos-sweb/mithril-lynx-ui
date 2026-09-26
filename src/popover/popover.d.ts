@@ -24,6 +24,8 @@ export interface PopoverRootAttrs {
 }
 
 export interface PopoverTriggerAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   disabled?: boolean;
@@ -35,6 +37,8 @@ export interface PopoverTriggerAttrs {
 }
 
 export interface PopoverAnchorAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   /** The element the popover positions itself against instead of PopoverTrigger, once this is used at all. */
@@ -42,6 +46,8 @@ export interface PopoverAnchorAttrs {
 }
 
 export interface PopoverBackdropAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   transition?: boolean;
@@ -54,6 +60,8 @@ export interface PopoverPositionerAttrs {
   placement?: PopoverPlacement;
   /** Pixel gap between the reference element and the floating content. @defaultValue 0 */
   placementOffset?: number;
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   transition?: boolean;
@@ -63,6 +71,8 @@ export interface PopoverPositionerAttrs {
 }
 
 export interface PopoverContentAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   transition?: boolean;
@@ -74,6 +84,8 @@ export interface PopoverArrowAttrs {
   /** Triangle size in pixels. @defaultValue 8 */
   size?: number;
   color?: string;
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   transition?: boolean;

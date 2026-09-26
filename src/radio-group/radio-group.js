@@ -15,7 +15,7 @@
 
 import m from "mithril-runtime";
 import { Button } from "../button/button.js";
-import { cx } from "../internal/cx.js";
+import { cx, classOf } from "../internal/cx.js";
 import { renderChildren } from "../internal/press.js";
 import { createScope } from "../scope/scope.js";
 
@@ -53,7 +53,8 @@ export const Radio = {
 			throw new Error("mithril-lynx-ui: <Radio> must be used inside a <RadioGroup>");
 		}
 
-		const { className, style, value, radioProps } = vnode.attrs;
+		const { style, value, radioProps } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const disabled = vnode.attrs.disabled === true || group.disabled === true;
 		const checked = value === group.value;
 
@@ -78,7 +79,8 @@ export const Radio = {
 /** The dot/mark inside a Radio. Mirrors CheckboxIndicator's forceMount rule. */
 export const RadioIndicator = {
 	view(vnode) {
-		const { className, style, forceMount = false } = vnode.attrs;
+		const { style, forceMount = false } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const { checked = false, disabled = false } = radioScope.useScope() || {};
 
 		return m(

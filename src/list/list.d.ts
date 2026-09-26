@@ -42,6 +42,8 @@ export interface ListItemAttrs {
 }
 
 export interface ListAttrs<T = unknown> {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   /** Required in practice: a native <list> only scrolls once it has an explicit size. */
   style?: Record<string, string | number>;

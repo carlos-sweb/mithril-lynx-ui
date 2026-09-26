@@ -19,7 +19,7 @@
 // header for when it IS needed).
 
 import m from "mithril-runtime";
-import { cx } from "../internal/cx.js";
+import { cx, classOf } from "../internal/cx.js";
 import { isActive, pressAttrs, renderChildren } from "../internal/press.js";
 import { createScope } from "../scope/scope.js";
 
@@ -40,7 +40,8 @@ export const Button = {
 	},
 
 	view(vnode) {
-		const { className, style, disabled = false, onClick, buttonProps } = vnode.attrs;
+		const { style, disabled = false, onClick, buttonProps } = vnode.attrs;
+		const className = classOf(vnode.attrs, buttonProps);
 		const active = isActive(vnode.state, disabled);
 		const api = { active, disabled };
 

@@ -37,6 +37,8 @@ export interface InputOTPRef {
 }
 
 export interface InputOTPAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   /** Positive integer; invalid values fall back to 6. @defaultValue 6 */
@@ -67,6 +69,8 @@ export interface InputOTPAttrs {
 }
 
 export interface InputOTPSlotAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   /** Zero-based index into the enclosing InputOTP's value. */

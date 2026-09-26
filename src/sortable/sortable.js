@@ -89,7 +89,7 @@
 import m from "mithril-runtime";
 import { redraw } from "mithril-lynx/mount-redraw";
 import { Draggable } from "../draggable/draggable.js";
-import { cx } from "../internal/cx.js";
+import { cx, classOf } from "../internal/cx.js";
 import { createSwapTracker, resetSwapTracker, sortKeyArray, updateSwapTracking } from "./sortable-utils.js";
 import { createScope } from "../scope/scope.js";
 
@@ -220,7 +220,8 @@ export const SortableItem = {
 		}
 		vnode.state.api = api; // stash — oncreate/onremove can't call useScope() themselves, see scope.js
 
-		const { className, style, sortingKey, disabled = false } = vnode.attrs;
+		const { style, sortingKey, disabled = false } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		if (sortingKey == null) {
 			throw new Error("mithril-lynx-ui: <SortableItem> requires a sortingKey");
 		}

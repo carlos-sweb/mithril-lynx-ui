@@ -49,6 +49,7 @@
 // hint) is dropped — a v1 simplification, not a correctness requirement.
 
 import m from "mithril-runtime";
+import { classOf } from "../internal/cx.js";
 
 // A zero-size placeholder can never register as visible, so the exposure
 // system would never fire and the real content would never load — this is
@@ -66,7 +67,6 @@ export const LazyComponent = {
 	view(vnode) {
 		const s = vnode.state;
 		const {
-			className,
 			style,
 			pid,
 			scene,
@@ -80,6 +80,7 @@ export const LazyComponent = {
 			onAppear,
 			onDisappear,
 		} = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const shouldUnmountOnExit = unmountOnExit ?? unloadable;
 
 		const exposureAttrs = {

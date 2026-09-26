@@ -49,6 +49,8 @@ export interface PresenceAttrs {
 }
 
 export interface PresenceContentAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
 }

@@ -45,6 +45,8 @@ export type DrawerCloseAttrs = SheetCloseAttrs;
 export type DrawerViewAttrs = SheetViewAttrs;
 
 export interface DrawerBackdropAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   style?: Record<string, string | number>;
   transition?: boolean;
@@ -56,6 +58,8 @@ export interface DrawerBackdropAttrs {
 }
 
 export interface DrawerContentAttrs {
+  /** Mithril-style class; combined with `className` when both are given. */
+  class?: string;
   className?: string;
   /** Width lives here (or on innerStyle) — a left/right Sheet's own positioning never sets one; css/drawer.css's "ui-drawer-content" class gives you a sensible 280px default. */
   style?: Record<string, string | number>;

@@ -38,7 +38,7 @@
 import m from "mithril-runtime";
 import { redraw } from "mithril-lynx/mount-redraw";
 import { ensureId, createRef } from "../internal/native-ref.js";
-import { cx } from "../internal/cx.js";
+import { cx, classOf } from "../internal/cx.js";
 import {
 	areSliderValuesEqual,
 	clamp01,
@@ -358,7 +358,8 @@ export const SliderRoot = {
 
 	view(vnode) {
 		const s = vnode.state;
-		const { className, style, disabled = false } = vnode.attrs;
+		const { style, disabled = false } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 
 		return m(
 			"view",
@@ -406,7 +407,7 @@ export const SliderTrack = {
 				onlayoutchange: api.onTrackLayoutChange,
 			},
 			[
-				m("view", { class: cx(vnode.attrs.className, { "ui-active": api.active, "ui-disabled": api.disabled }), style: vnode.attrs.style }),
+				m("view", { class: cx(classOf(vnode.attrs), { "ui-active": api.active, "ui-disabled": api.disabled }), style: vnode.attrs.style }),
 				vnode.children,
 			],
 		);
@@ -443,7 +444,7 @@ export const SliderThumb = {
 			m(
 				"view",
 				{
-					class: cx(vnode.attrs.className, {
+					class: cx(classOf(vnode.attrs), {
 						"ui-active": api.active && api.activeThumbIndex === index,
 						"ui-disabled": api.disabled,
 					}),
@@ -479,7 +480,7 @@ export const SliderIndicator = {
 					{ width: `${size * 100}%` },
 				),
 			},
-			m("view", { class: cx(vnode.attrs.className, { "ui-active": api.active, "ui-disabled": api.disabled }), style: vnode.attrs.style }),
+			m("view", { class: cx(classOf(vnode.attrs), { "ui-active": api.active, "ui-disabled": api.disabled }), style: vnode.attrs.style }),
 		);
 	},
 };

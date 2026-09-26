@@ -67,7 +67,7 @@ import m from "mithril-runtime";
 import { redraw } from "mithril-lynx/mount-redraw";
 import { ensureId, createRef } from "../internal/native-ref.js";
 import { registerGesture } from "../internal/gesture.js";
-import { cx } from "../internal/cx.js";
+import { cx, classOf } from "../internal/cx.js";
 import { easeInOut } from "./easing.js";
 import { cancelFrame, requestFrame } from "../internal/frames.js";
 import { nativeBool } from "../internal/native.js";
@@ -159,6 +159,10 @@ function scheduleMeasure(vnode, attempt = 0) {
 			}
 			redraw();
 		},
+		// The element went away while measuring (the SwipeAction was removed,
+		// e.g. by navigating away): stop retrying instead of leaving an
+		// unhandled rejection behind.
+		() => {},
 	);
 }
 
@@ -292,7 +296,8 @@ export const SwipeAction = {
 
 	view(vnode) {
 		const s = vnode.state;
-		const { className, style, displayArea, actionArea, iosEnableSimultaneousTouch = true } = vnode.attrs;
+		const { style, displayArea, actionArea, iosEnableSimultaneousTouch = true } = vnode.attrs;
+		const className = classOf(vnode.attrs);
 		const totalAreaSize = s.displayAreaSize + s.actionAreaSize;
 
 		return m(
