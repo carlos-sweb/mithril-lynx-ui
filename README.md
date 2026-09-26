@@ -14,6 +14,10 @@ Lynx elements.
 npm install mithril-lynx-ui
 ```
 
+Peer dependencies: `mithril-lynx` 3.0.0 or later and `mithril-runtime`. `List` renders mithril-lynx 3.0.0's
+native `list`/`list-item` elements, and `Input`/`TextArea` use its declarative `value` and element UI
+methods, so 2.x does not work.
+
 Then add one line to the `style.css` that `mithril-lynx/plugin` already bundles with your entry:
 
 ```css
@@ -28,7 +32,7 @@ an ancestor, usually your page root; Luna scopes its custom properties to those 
 ## Usage
 
 ```js
-import m from "mithril";
+import m from "mithril-runtime";
 import { Button } from "mithril-lynx-ui/button";
 import { Switch, SwitchThumb, SwitchTrack } from "mithril-lynx-ui/switch";
 
@@ -36,11 +40,14 @@ m("view", { class: "luna-dark" }, [
   m(Button, { className: "ui-button", onClick: () => console.log("tap") },
     m("text", { class: "ui-button-label" }, "Continuar")),
 
-  m(Switch, { className: "ui-switch", checked: on, onChange: (v) => { on = v; shim.redraw(); } },
+  m(Switch, { className: "ui-switch", checked: on, onChange: (v) => { on = v; } },
     m(SwitchTrack, { className: "ui-switch-track" },
       m(SwitchThumb, { className: "ui-switch-thumb" }))),
 ]);
 ```
+
+Callbacks like `onChange` run inside a native event, so mithril-lynx redraws after them on its own. State
+changed anywhere else (a timer, a fetch) needs `redraw()` from `mithril-lynx/mount-redraw`.
 
 ### Styling
 
@@ -78,10 +85,21 @@ m(Switch, { defaultChecked: true }, ({ checked, active, disabled }) =>
 | `mithril-lynx-ui/input` | `Input`, `TextArea` |
 | `mithril-lynx-ui/slider` | `SliderRoot`, `SliderTrack`, `SliderThumb`, `SliderIndicator` |
 | `mithril-lynx-ui/presence` | `Presence`, `PresenceContent`, `usePresence`, `presenceClasses` |
+| `mithril-lynx-ui/input-otp` | `InputOTP`, `InputOTPSlot`, `useInputOTPContext` |
+| `mithril-lynx-ui/form` | `FormRoot`, `FormField`, `FormSubmitButton`, `useForm` |
+| `mithril-lynx-ui/list` | `List` — see `list` below |
+| `mithril-lynx-ui/feed-list` | `FeedList` |
+| `mithril-lynx-ui/lazy-component` | `LazyComponent` |
+| `mithril-lynx-ui/dialog` | `DialogRoot`, `DialogTrigger`, `DialogClose`, `DialogBackdrop`, `DialogContent`, `DialogView` |
+| `mithril-lynx-ui/sheet` | `SheetRoot`, `SheetTrigger`, `SheetClose`, `SheetBackdrop`, `SheetHandle`, `SheetContent`, `SheetView` |
+| `mithril-lynx-ui/drawer` | `DrawerRoot`, `DrawerTrigger`, `DrawerClose`, `DrawerView`, `DrawerBackdrop`, `DrawerContent` |
+| `mithril-lynx-ui/popover` | `PopoverRoot`, `PopoverTrigger`, `PopoverAnchor`, `PopoverBackdrop`, `PopoverPositioner`, `PopoverContent`, `PopoverArrow` |
+| `mithril-lynx-ui/swiper` | `Swiper` |
+| `mithril-lynx-ui/sortable` | `SortableRoot`, `SortableItem` |
+| `mithril-lynx-ui/swipe-action` | `SwipeAction` |
+| `mithril-lynx-ui/layout` | `Box`, `Stack`, `Row`, `Column`, `Center`, `Spacer`, `ZStack`, `Grid`, `GridItem`, `Divider`, `AspectRatio` |
 | `mithril-lynx-ui/scope` | `createScope` — the Context substitute described below |
 | `mithril-lynx-ui/native` | `nativeBool` — see Native element interop |
-
-Dialog, Sheet, Popover, List, Swiper, Sortable, SwipeAction and the rest are not built yet.
 
 ### `slider` — one value model, two shapes
 
@@ -91,60 +109,102 @@ mode picks whichever one is closer, a thumb can meet but never cross the other, 
 (both thumbs equal) picks a direction to move based on which way you drag away from it.
 
 ```js
-m(SliderRoot, { value, onValueChange: (v) => { value = v; shim.redraw(); } },
+m(SliderRoot, { value, onValueChange: (v) => { value = v; } },
   m(SliderTrack, { className: "ui-slider-track" }, [
     m(SliderIndicator, { className: "ui-slider-indicator" }),
     m(SliderThumb, { className: "ui-slider-thumb" }),      // or two, with index: 0 / index: 1, for a range
   ]));
 ```
 
-Track width isn't known on the very first touch, so the bounds are measured asynchronously (the same
-`NodesRef.invoke("boundingClientRect", ...)` call `mithril-lynx/element`'s `wrapElement().invoke()`
-already wraps) and any move that arrives before that resolves is queued and replayed once it does — ported
-as-is; that queuing is load-bearing, not defensive paranoia.
+Track width isn't known on the very first touch, so the bounds are measured asynchronously (a
+`boundingClientRect` UI method call, through `internal/native-ref.js`) and any move that arrives before
+that resolves is queued and replayed once it does — ported as-is; that queuing is load-bearing, not
+defensive paranoia.
 
 Uses `on*` handlers rather than the original's `catch*` (Lynx's "stop this from also reaching an
-ancestor" event modifier) — the shim has no capture/stop-propagation concept, only a plain
-`addEventListener`. Verified this doesn't conflict with a surrounding `<scroll-view>` in this project's
+ancestor" event modifier) — mithril-lynx's fake DOM has no capture/stop-propagation concept, only a
+plain `addEventListener`. Verified this doesn't conflict with a surrounding `<scroll-view>` in this project's
 own gallery, but that's one layout, not a guarantee.
 
-### `draggable` — where the MTS bet pays off
+### `draggable` — the drag loop without Main Thread Scripting
 
 lynx-ui's Draggable carries twelve `'main thread'` directives: the whole drag loop (read the touch point,
-compute the delta, clamp it, write the transform) runs on the main thread, because a drag that pays a
-thread hop per frame doesn't feel like one. A mithril-lynx app in main-thread-owned mode is already
-there — the handler runs on the same thread the touch event arrives on — so it's just ordinary code here.
-Not a workaround for missing MTS: the reason MTS exists in the original doesn't apply.
+compute the delta, clamp it, write the transform) runs on the main thread. mithril-lynx has no Main Thread
+Scripting — component code runs on the background thread — so here each `touchmove` is forwarded there,
+and the new position is written straight to the node with `setNativeProps` rather than through a diff.
+mithril-lynx 3.0.0 coalesces the redraws that follow `touchmove`/`gesturemove`/`scroll` to one per frame.
 
-The position is written straight to the node (a diff per touchmove would be wasted work) — and also kept
-in the rendered `style`, which matters more than it looks: a redraw mid-drag (an app mirroring
-`onDragging` into its own state causes exactly this) re-applies `style` from attrs, and without the
-transform there too, Mithril's own diff strips it back out mid-gesture. Found on device, not in tests —
-the reported offset kept climbing while the element sat still.
+The position is also kept in the rendered `style`, which matters more than it looks: a redraw mid-drag (an
+app mirroring `onDragging` into its own state causes exactly this) re-applies `style` from attrs, and
+without the transform there too, Mithril's own diff strips it back out mid-gesture. Found on device, not in
+tests — the reported offset kept climbing while the element sat still.
 
-### `input` — and one place this is simpler than lynx-ui
+### `input` — `Input` and `TextArea`
 
-A controlled field's value is pushed through the native editor's own `setValue`, never diffed on as an
-attribute — an attribute would fight the native editor's internal state. Imperative access follows:
+Both wrap the native `<input>`/`<textarea>`. On mithril-lynx 3.0.0 a field works like a web form field:
 
 ```js
+import { Input, TextArea } from "mithril-lynx-ui/input";
+
+let email = "";
 const ref = {};
-m(Input, { inputRef: ref, value, onInput: (v) => { value = v; shim.redraw(); } });
-ref.focus(); // also blur, setValue, getValue, setSelectionRange
+
+m(Input, {
+  className: "ui-input",
+  type: "email",                 // text | number | digit | email | tel | password
+  placeholder: "tu@correo.com",
+  value: email,                  // controlled: omit for uncontrolled
+  onInput: (value, selectionStart, selectionEnd, isComposing) => { email = value; },
+  onConfirm: (value) => submit(value),
+  inputRef: ref,
+  inputProps: { autofocus: true }, // any raw native attribute
+});
+
+m(TextArea, { className: "ui-textarea", defaultValue: "Notas…", maxLines: 4 });
 ```
 
-lynx-ui wraps this in Main Thread Scripting: its components run on the background thread, so an input
-event lands on the main thread and has to be forwarded, and it marks the field readonly mid-flight so
-typing can't race that hop. A mithril-lynx app in main-thread-owned mode has no hop — the handler already
-runs where the event arrives — so controlled input is simply synchronous here and none of that machinery
-exists. An app that moves its logic to the background thread reintroduces the hop; that's what
-mithril-lynx's named-handler registry is for.
+- **`value` (controlled).** It is sent to the native editor (its `setValue` method) only when it differs
+  from what the field holds. Text the user just typed is never echoed back, so the caret doesn't jump. A
+  value the app changes — clearing it, forcing uppercase, trimming — is sent once. `null` clears the field.
+- **`defaultValue` (uncontrolled).** It seeds the field once, when it is created; after that the field is on
+  its own.
+- **No `id` or timers needed.** The value, focus and the `inputRef` methods work from the moment the
+  component is created. Before mithril-lynx 3.0.0 this took an `id`, `lynx.createSelectorQuery()` and a
+  `setTimeout`.
+- **`inputRef`:** `focus()`, `blur()`, `setValue(v)`, `getValue()` (resolves
+  `{ value, selectionStart, selectionEnd, isComposing }`) and `setSelectionRange(start, end)`, all returning
+  promises.
+- **Autofocus:** pass `inputProps: { autofocus: true }` to focus the field once on creation.
+- **Other attributes:** `readonly`, `maxLength` (default 140), `confirmType` (default `"send"`),
+  `inputFilter`, `showSoftInputOnFocus`, plus `onFocus`, `onBlur`, `onSelectionChange`. `inputProps` passes
+  any other native attribute through.
+
+lynx-ui's `Input` handles input in Main Thread Scripting and marks the field readonly while a controlled
+value round-trips from the background thread, so a keystroke can't race it. mithril-lynx 3.0.0 guards the
+same race in its core instead:
+- the main thread counts each field's keystrokes and drops a `setValue` computed before the latest one;
+  that keystroke's own event re-renders with the right value;
+- it drops the `input` events native fires on its own — every `setValue` is echoed back, and a `<textarea>`
+  fires `input ""` when created — so `onInput` only runs when the text really changed.
+
+See mithril-lynx's `INPUT.md`. Verified on an Android device: fast typing through a controlled uppercase
+`Input`, and a `TextArea` with `defaultValue`.
+
+`<input>`/`<textarea>` need the XElement input artifacts on the host (see "Native element interop" below).
+
+### `list` — the native virtualized list
+
+`List` renders mithril-lynx 3.0.0's native `list`/`list-item` elements: `renderItem(item, index)`, a stable
+`getItemKey(item, index)`, per-item native attributes from `getItemAttrs` (`full-span`, `sticky-top`, …),
+every other native `<list>` attribute and event passed straight through, and the native methods on
+`listRef` (`scrollToPosition`, `scrollBy`, `autoScroll`, `getVisibleCells`, plus `scrollTo(index)`).
+See `docs/native-papi/papi-07-list-redesign.md`.
 
 ### `presence` — animating things out
 
 An element removed from the tree can't animate on its way out, because it's already gone. `Presence`
 keeps it mounted until its leave animation actually reports finished, and falls back to a frame watchdog
-when there's no animation at all. It's what Dialog, Sheet and Popover will be built on.
+when there's no animation at all. Dialog, Sheet, Drawer and Popover are built on it.
 
 ```js
 m(Presence, { show: open, onClose: () => {} },
@@ -172,21 +232,20 @@ only after the whole tree is diffed, which is too late for a descendant's own `v
 
 ## Native element interop
 
-Two things bite when driving Lynx's native elements through Mithril's DOM-shaped API. Both were found on
+Three things bite when driving Lynx's native elements through Mithril's DOM-shaped API. All were found on
 device, not in tests:
 
-- **Every attribute crosses as a string, and booleans don't survive at all.** The shim mirrors the DOM,
-  where `setAttribute` always stringifies — so `maxLength: 10` arrives as `"10"` (native parses it back,
-  fine). Booleans are the fatal case: Mithril's HTML semantics turn `attr={true}` into
+- **Attributes cross as strings, and booleans don't survive at all.** mithril-lynx's fake DOM mirrors the
+  DOM, where `setAttribute` always stringifies — so `maxLength: 10` arrives as `"10"` (native parses it
+  back, fine). Booleans are the fatal case: Mithril's HTML semantics turn `attr={true}` into
   `setAttribute(key, "")`, because on the web presence *is* the signal, and a native Lynx element reads
   that empty string as not-set. `visible={true}` on `<overlay>` therefore mounts silently and never
   appears. Use `nativeBool()` from `mithril-lynx-ui/native` for any boolean bound to a native element.
-- **One copy of mithril-lynx, or nothing works.** The shim keeps its render state (root wrapper, redraw
-  function) in module-level variables, so two physical copies means two disconnected renderers: the app
-  renders through one, and a library calling `shim.redraw()` hits the other — whose redraw is still
-  `null`, making it a silent no-op with no error at all. Any app consuming a linked or nested copy needs
-  an exact alias (see `demo/lynx.config.ts`); `mithril-lynx/plugin` already does this for `mithril`
-  itself and arguably should for `mithril-lynx` too.
+  (`<list>`/`<list-item>` are the exception: mithril-lynx 3.0.0 passes their attributes with real types.)
+- **One copy of mithril-lynx.** Components call `redraw()` from `mithril-lynx/mount-redraw`, which talks to
+  the app mounted by *that* copy's `renderApp()`. If the app and this package resolve two physical copies
+  of mithril-lynx (an `npm link`, a nested install), a component's redraw goes to the copy with no app and
+  silently does nothing. Make sure only one copy resolves, with a bundler alias if needed.
 - **Several elements are opt-in native artifacts.** `<overlay>`, `<input>`, `<textarea>` and friends are
   not in the core `lynx` Maven artifact. Without the matching `org.lynxsdk.lynx:xelement-*` dependency
   (plus `XElementBehaviors().create()` registered on the `LynxViewBuilder`) they mount without error and
@@ -194,12 +253,13 @@ device, not in tests:
 
 ## Known gaps
 
-- **Main Thread Scripting.** lynx-ui uses compiler-transformed cross-thread closures for things like
-  `Input`'s optimistic echo. mithril-lynx substitutes a named handler registry
-  (`registerHandler`/`runOnMainThread`), which is equal in capability but permanently different in
-  ergonomics — inline closures aren't possible without a compiler. Components that depend on MTS will be
-  re-implemented against that registry rather than ported.
-- Components are verified on real hardware before being listed above as done.
+- **No Main Thread Scripting.** lynx-ui runs per-frame work (drags, the controlled `Input`'s readonly lock)
+  on the main thread through compiler-transformed closures. mithril-lynx has no such compiler: component
+  code runs on the background thread. What replaces it:
+  - native gesture detectors whose claim/release decision runs on the main thread (`internal/gesture.js`,
+    used by Sheet, Swiper and SwipeAction — see `docs/native-papi/papi-05-native-gestures.md`);
+  - direct `setNativeProps` writes instead of a diff per frame;
+  - for `Input`, mithril-lynx's own race guard.
 
 ## License
 

@@ -76,8 +76,17 @@ export function mount(root: () => unknown): Mounted {
 	// dispatch" precedent the rest of this harness already follows.
 	let appRef: ReturnType<typeof renderApp> | null = null;
 	const applier = createPatchApplier(pageId, {
-		onEvent: (id: unknown, type: string, payload: Record<string, unknown>) => {
-			const node = (appRef?.document as any)?.getNodeById(id) as TestNode | undefined;
+		onEvent: (id: unknown, type: string, payload: Record<string, unknown>, seq?: number) => {
+			const doc = appRef?.document as any;
+			// A native UI method's result (`vnode.dom.invoke()`), not an event —
+			// settled the way background.js's router does.
+			if (type === "mithrilLynx:invokeResult") {
+				doc?.resolveInvoke(payload);
+				return;
+			}
+			const node = doc?.getNodeById(id) as (TestNode & { _syncFromEvent?: Function }) | undefined;
+			// An <input>/<textarea> syncs its `value` before handlers run, as in background.js.
+			node?._syncFromEvent?.(payload, seq);
 			node?.dispatchEvent({ type, currentTarget: node, ...payload });
 		},
 	});
@@ -117,6 +126,9 @@ export function mount(root: () => unknown): Mounted {
 /** Fires a native-shaped event on a fake-dom node, same way a forwarded
  * native event would (see channel.js's onEventFromMainThread). */
 export function fire(node: TestNode, type: string, payload: Record<string, unknown> = {}) {
+	// An <input>/<textarea> learns its native value from the event first, as
+	// background.js's router does for a real forwarded event.
+	(node as any)._syncFromEvent?.(payload);
 	node.dispatchEvent({ type, currentTarget: node, ...payload });
 }
 
@@ -235,4 +247,15 @@ export function gestureCallbacksOf(app: Mounted, node: TestNode): Record<string,
 		out[entry.name] = (event, controller) => (globalThis as any).runWorklet(entry.callback, [event, controller]);
 	}
 	return out;
+}
+
+/** The native UI methods (`__InvokeUIMethod`) called on `node`'s element, in
+ * order — what mithril-lynx's `vnode.dom.invoke()`/`focus()`/`blur()` and an
+ * input's `value` turn into on the main thread. */
+export function uiMethodCallsOf(app: Mounted, node: TestNode): { method: string; params: unknown }[] {
+	const handle = app.applier.getHandle(node._id);
+	const calls = (globalThis as any).__papiCalls as { fn: string; args: unknown[] }[];
+	return calls
+		.filter((c) => c.fn === "__InvokeUIMethod" && c.args[0] === handle)
+		.map((c) => ({ method: c.args[1] as string, params: c.args[2] }));
 }

@@ -1,14 +1,13 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril-runtime";
 import { Input, TextArea } from "../src/input/input.js";
-import { mount, fire, type Mounted, type TestNode } from "./harness.js";
+import { mount, fire, type Mounted, type TestNode, uiMethodCallsOf } from "./harness.js";
 
 // What's worth asserting here is the native contract: the attribute names and
 // value shapes that reach the element, the event payload unwrapping (Lynx
-// nests everything under `detail`), and that a controlled value is pushed
-// through the element's own setValue (via the native-ref.js bridge — see
-// docs/native-papi/papi-01-imperative-refs.md) rather than diffed on as an
-// attribute.
+// nests everything under `detail`), and that a controlled value reaches the
+// native element through its setValue UI method (mithril-lynx's `value`
+// property on input/textarea, see its INPUT.md) rather than as an attribute.
 
 const papiCalls = (): { fn: string; args: unknown[] }[] => (globalThis as any).__papiCalls;
 
@@ -21,16 +20,12 @@ function attrsOf(app: Mounted, node: TestNode): Record<string, unknown> {
 	return out;
 }
 
-function invocations(app: Mounted, node: TestNode) {
-	const handle = app.applier.getHandle(node._id);
-	const calls = (globalThis as any).__nodesRefInvokeCalls as { element: unknown; method: string; params: unknown }[];
-	return calls.filter((c) => c.element === handle).map((c) => ({ method: c.method, params: c.params }));
-}
+// Native UI method calls on the field (mithril-lynx's `vnode.dom` methods
+// and an input's `value` become `__InvokeUIMethod` on the main thread).
+const invocations = uiMethodCallsOf;
 
-// invoke() crosses internal/native-ref.js's per-id queue (see
-// docs/native-papi/papi-01-imperative-refs.md), which is at least two
-// microtask hops deep — a single `await Promise.resolve()` isn't always
-// enough to observe its effect. A macrotask flush is.
+// A UI method called outside a render (an inputRef method) is sent at the
+// end of the task by mithril-lynx; a macrotask flush lets it land.
 const settle = () => new Promise((r) => setTimeout(r, 0));
 
 describe("input.js", () => {
@@ -126,6 +121,40 @@ describe("input.js", () => {
 
 		await (ref.focus as () => Promise<unknown>)();
 		expect(invocations(app, app.root).some((i) => i.method === "focus")).toBe(true);
+	});
+
+	it("doesn't send back text the user typed into a controlled field", async () => {
+		let value = "";
+		const app = mount(() => m(Input, { value, onInput: (v: string) => (value = v) }));
+		const input = app.root;
+		await settle();
+
+		fire(input, "input", { detail: { value: "hola", selectionStart: 4, selectionEnd: 4, isComposing: false } });
+		await settle();
+		expect(value).toBe("hola");
+		expect(invocations(app, input)).toEqual([]);
+
+		// A value the app transforms is sent, once.
+		value = "HOLA";
+		app.redraw();
+		app.redraw();
+		await settle();
+		expect(invocations(app, input)).toEqual([{ method: "setValue", params: { value: "HOLA" } }]);
+	});
+
+	it("needs no generated id: only a consumer's own id reaches the element", () => {
+		const bare = mount(() => m(Input, {}));
+		const bareHandle = bare.applier.getHandle(bare.root._id);
+		expect(papiCalls().some((c) => c.fn === "__SetID" && c.args[0] === bareHandle)).toBe(false);
+		mount(() => m(Input, { id: "email" }));
+		expect(papiCalls().some((c) => c.fn === "__SetID" && c.args[1] === "email")).toBe(true);
+	});
+
+	it("inputProps: { autofocus: true } focuses the field once, on creation", async () => {
+		const app = mount(() => m(Input, { inputProps: { autofocus: true } }));
+		app.redraw();
+		await settle();
+		expect(invocations(app, app.root).filter((i) => i.method === "focus")).toHaveLength(1);
 	});
 
 	it("TextArea renders a <textarea> and carries maxlines", () => {

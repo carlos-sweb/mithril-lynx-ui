@@ -3,14 +3,15 @@
 
 import type { Component } from "mithril";
 
-/** Imperative handle, filled in on mount. Pass a plain object as `inputRef`. */
+/** Imperative handle, filled in on mount. Pass a plain object as `inputRef`.
+ * Backed by mithril-lynx's element methods: no `id` needed. */
 export interface InputRef {
-  focus(): Promise<{ code: number; data: unknown }>;
-  blur(): Promise<{ code: number; data: unknown }>;
-  setValue(value: string): Promise<{ code: number; data: unknown }>;
-  /** Resolves the PAPI envelope; the payload carries { value, selectionStart, selectionEnd }. */
-  getValue(): Promise<{ code: number; data: unknown }>;
-  setSelectionRange(start: number, end: number): Promise<{ code: number; data: unknown }>;
+  focus(): Promise<unknown>;
+  blur(): Promise<unknown>;
+  /** Sets the text through the element's `value` (sent with the next patch). */
+  setValue(value: string): Promise<void>;
+  getValue(): Promise<{ value: string; selectionStart: number; selectionEnd: number; isComposing?: boolean }>;
+  setSelectionRange(start: number, end: number): Promise<unknown>;
 }
 
 export interface FieldAttrs {
@@ -26,7 +27,7 @@ export interface FieldAttrs {
   inputFilter?: string;
   /** Defaults to true. */
   showSoftInputOnFocus?: boolean;
-  /** Controlled value, pushed into the native editor imperatively. Omit for uncontrolled. */
+  /** Controlled value: sent to the native editor (setValue) whenever it differs from what the field holds. `null` clears it. Omit for uncontrolled. */
   value?: string;
   /** Initial value for an uncontrolled field; ignored once `value` is supplied. */
   defaultValue?: string;

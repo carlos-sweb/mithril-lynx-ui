@@ -7,33 +7,26 @@
 // LynxViewBuilder) they mount without error and render at zero size. See the
 // README's native-interop section.
 //
-// One deliberate divergence from real lynx-ui's own `Input`, which binds
-// its native `<input>`'s content event with `main-thread:bindinput`, not a
-// plain `bindinput`: that lets it run the handler hop-free, and upstream
-// additionally locks the field readonly on the main thread while a
-// controlled value round-trips back, purely to stop a second keystroke
-// from racing that round trip and corrupting what the native editor shows
-// mid-flight.
+// How the text reaches the native editor: mithril-lynx gives an
+// `input`/`textarea` element a real `value` property (see mithril-lynx's
+// INPUT.md). Assigning it sends the native `setValue` UI method with the
+// patch, right after the flush that creates the element; every event of
+// the field syncs it back from `detail.value`. So a controlled `value` is
+// just an attribute here — Mithril only writes it when it differs from what
+// the field holds, which means text the user just typed is never echoed
+// back, and a value the app changes is sent once.
 //
-// mithril-lynx's own component code always runs on the background thread —
-// a native `oninput` event is forwarded there from the main thread where it
-// actually fired, and this component's own `setValue()` push (see
-// internal/native-ref.js) crosses back the other way. So the same kind of
-// race upstream's readonly-lock guards against is real here too: if two
-// `setValue()` calls to the same field are in flight at once, there's no
-// guarantee the one sent first is the one that resolves first. Rather than
-// a readonly-lock, this relies on internal/native-ref.js's own per-id
-// invoke queue — every `invoke()` call to the same node is serialized, so
-// writes always land in the order they were issued regardless of how long
-// each one takes to cross the bridge.
+// Upstream's `Input` locks the field readonly on the main thread while a
+// controlled value round-trips, so a second keystroke can't race it.
+// mithril-lynx does that job in core instead: the main thread counts each
+// field's native `input` events and drops a `setValue` computed before the
+// latest one (that keystroke's own event re-renders with the right value).
 //
-// The value of a controlled field is pushed imperatively through the native
-// element's own setValue, exactly as upstream does — it is NOT a rendered
-// attribute, and diffing one onto the element would fight the native
-// editor's own state.
+// The imperative handle (`inputRef`) delegates to the element's own
+// `focus`/`blur`/`invoke` (mithril-lynx's fake-dom), so it needs no `id` and
+// works from the moment the component is created.
 
 import m from "mithril-runtime";
-import { ensureId, createRef } from "../internal/native-ref.js";
 import { cx } from "../internal/cx.js";
 import { nativeBool } from "../internal/native.js";
 
@@ -43,50 +36,39 @@ function detailOf(event) {
 	return (event && event.detail) || {};
 }
 
-function makeRef(id) {
-	const el = createRef(id);
-
+/**
+ * The imperative API over a field's fake-dom element.
+ * @param {Object} dom - The field's `vnode.dom`.
+ * @returns {Object} The `inputRef` methods.
+ */
+function makeRef(dom) {
 	return {
-		focus: () => el.invoke("focus"),
-		blur: () => el.invoke("blur"),
-		setValue: (value) => el.invoke("setValue", { value: value == null ? "" : String(value) }),
-		/** Resolves { value, selectionStart, selectionEnd } directly — internal/native-ref.js's invoke() already unwraps the PAPI's { code, data } envelope, unlike a direct-handle ref (see docs/native-papi/papi-01-imperative-refs.md). */
-		getValue: () => el.invoke("getValue"),
-		setSelectionRange: (selectionStart, selectionEnd) =>
-			el.invoke("setSelectionRange", { selectionStart, selectionEnd }),
+		focus: () => dom.invoke("focus"),
+		blur: () => dom.invoke("blur"),
+		/** Goes through the element's `value`, so a later render compares against it; the call itself travels with the next patch. */
+		setValue: (value) => {
+			dom.value = value == null ? "" : String(value);
+			return Promise.resolve();
+		},
+		/** Resolves { value, selectionStart, selectionEnd, isComposing }. */
+		getValue: () => dom.invoke("getValue"),
+		setSelectionRange: (selectionStart, selectionEnd) => dom.setSelectionRange(selectionStart, selectionEnd),
 	};
 }
 
 function fieldComponent(tag) {
 	return {
-		oninit(vnode) {
-			// A ref into the native element is by id (see internal/native-ref.js)
-			// — reuse the consumer's own `id` if they gave one, otherwise mint a
-			// stable one now and keep using it for this instance's whole life.
-			vnode.state.refId = ensureId(vnode.attrs.id);
-		},
-
 		oncreate(vnode) {
-			const s = vnode.state;
-			s.ref = makeRef(s.refId);
 			// Hand the imperative API to whoever asked for it — the Mithril
 			// equivalent of upstream's useImperativeHandle(ref, ...). Callers pass
 			// a plain object and read methods off it afterwards.
-			if (vnode.attrs.inputRef != null) Object.assign(vnode.attrs.inputRef, s.ref);
-
-			// Seed the native editor. A controlled field takes `value`; an
-			// uncontrolled one takes `defaultValue` once and is then on its own.
-			const initial = vnode.attrs.value !== undefined ? vnode.attrs.value : vnode.attrs.defaultValue;
-			s.lastValue = vnode.attrs.value;
-			if (initial != null && initial !== "") s.ref.setValue(initial);
-		},
-
-		onupdate(vnode) {
-			const s = vnode.state;
-			if (vnode.attrs.value === undefined) return; // uncontrolled: never pushed
-			if (vnode.attrs.value === s.lastValue) return;
-			s.lastValue = vnode.attrs.value;
-			s.ref.setValue(vnode.attrs.value);
+			if (vnode.attrs.inputRef != null) Object.assign(vnode.attrs.inputRef, makeRef(vnode.dom));
+			// An uncontrolled field takes `defaultValue` once and is then on its
+			// own. Set here, not rendered: a `value` attribute dropped on the
+			// next render would clear the field.
+			if (vnode.attrs.value === undefined && vnode.attrs.defaultValue != null) {
+				vnode.dom.value = vnode.attrs.defaultValue;
+			}
 		},
 
 		view(vnode) {
@@ -110,7 +92,7 @@ function fieldComponent(tag) {
 			} = vnode.attrs;
 
 			const attrs = Object.assign({}, inputProps, {
-				id: vnode.state.refId,
+				id: vnode.attrs.id,
 				class: cx(className, { "ui-readonly": readonly === true }),
 				style,
 				placeholder,
@@ -145,6 +127,8 @@ function fieldComponent(tag) {
 				},
 			});
 
+			// Controlled: the native text follows `value` (null clears it).
+			if (vnode.attrs.value !== undefined) attrs.value = vnode.attrs.value == null ? "" : vnode.attrs.value;
 			if (tag === "input") attrs.type = type;
 			else if (maxLines != null) attrs.maxlines = maxLines;
 

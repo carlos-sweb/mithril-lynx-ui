@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 import m from "mithril-runtime";
 import { InputOTP, InputOTPSlot, useInputOTPContext } from "../src/input-otp/input-otp.js";
-import { mount, fire, textOf, type Mounted, type TestNode } from "./harness.js";
+import { mount, fire, textOf, type Mounted, type TestNode, uiMethodCallsOf } from "./harness.js";
 
 function attrsOf(app: Mounted, node: TestNode): Record<string, unknown> {
 	const handle = app.applier.getHandle(node._id);
@@ -12,11 +12,9 @@ function attrsOf(app: Mounted, node: TestNode): Record<string, unknown> {
 	return out;
 }
 
-function invocations(app: Mounted, node: TestNode) {
-	const handle = app.applier.getHandle(node._id);
-	const calls = (globalThis as any).__nodesRefInvokeCalls as { element: unknown; method: string; params: unknown }[];
-	return calls.filter((c) => c.element === handle).map((c) => ({ method: c.method, params: c.params }));
-}
+// Native UI method calls on the field (mithril-lynx's `vnode.dom` methods
+// and an input's `value` become `__InvokeUIMethod` on the main thread).
+const invocations = uiMethodCallsOf;
 
 function messageOfThrow(fn: () => unknown): string {
 	try {

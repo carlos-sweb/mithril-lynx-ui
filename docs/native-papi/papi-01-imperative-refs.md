@@ -1,5 +1,13 @@
 # 1 — Imperative refs: invoking a native method on a node
 
+> **Update:** since mithril-lynx 3.0.0, UI methods are called from
+> the element itself: `vnode.dom.invoke(method, params)`, `focus()`, `blur()`,
+> and a real `value` on `input`/`textarea`, run on the main thread right after
+> the patch's flush — no `id` or selector query (see mithril-lynx's
+> INPUT.md). `src/input/input.js` now uses that, so the `input.js` code
+> quoted below is historical. `src/internal/native-ref.js` is still what the
+> other components here (slider, popover, swipe-action, …) use.
+
 ## What this solves
 
 Some operations a native element exposes as an imperative method, not as
