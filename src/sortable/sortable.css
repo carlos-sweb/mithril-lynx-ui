@@ -2,8 +2,9 @@
    each SortableItem's className. See css/button.css's header for why these
    defaults exist at all.
 
-   No transition on transform: sortable.js drives it every touchmove and
-   every swap, same reasoning as css/draggable.css.
+   Sibling transforms animate into their projected slots only while a drag
+   is active. At release, JS resets transforms and commits the new item order;
+   those native operations must not compete with a lingering CSS transition.
 
    .ui-sorting marks whichever item is currently being dragged — this
    project's v1 stand-in for the original's separate drag-overlay layer (see
@@ -14,7 +15,16 @@
   transition: box-shadow 0.15s ease-out, opacity 0.15s ease-out;
 }
 
+.ui-sortable.ui-sortable-shifting {
+  transition: transform 0.16s ease-out, box-shadow 0.15s ease-out, opacity 0.15s ease-out;
+}
+
+.ui-sortable.ui-sortable-settling {
+  transition: box-shadow 0.15s ease-out, opacity 0.15s ease-out;
+}
+
 .ui-sortable.ui-sorting {
+  transition: box-shadow 0.15s ease-out, opacity 0.15s ease-out;
   position: relative;
   z-index: 10;
   opacity: 0.96;

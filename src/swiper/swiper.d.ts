@@ -14,6 +14,7 @@ export interface SwiperAttrs<T = unknown> {
   /** Mithril-style class; combined with `className` when both are given. */
   class?: string;
   className?: string;
+  /** Viewport styles. Defaults to alignSelf: "center" within a flex-column container. */
   style?: Record<string, string | number>;
   trackClassName?: string;
   trackStyle?: Record<string, string | number>;

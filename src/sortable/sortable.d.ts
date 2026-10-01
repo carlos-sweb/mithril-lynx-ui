@@ -9,6 +9,11 @@ export interface SortableData<T> {
 }
 
 export interface SortableRootAttrs<T> {
+  /** Class applied to the stable list container. */
+  class?: string;
+  className?: string;
+  /** Container layout styles. The native stacking context (zIndex: 0) is reserved. */
+  style?: Record<string, string | number>;
   data: SortableData<T>[];
   /** Renders one item. A named attr (not a JSX/positional child) — see sortable.js's header. */
   children: (item: SortableData<T>) => unknown;
@@ -29,6 +34,6 @@ export interface SortableItemAttrs {
   disabled?: boolean;
 }
 
-/** Renders no element of its own — a Scope Provider wrapping `data.map(item => attrs.children(item))`. */
+/** Renders a vertical view with a stable stacking context and confines the active row to its vertical bounds. */
 export declare const SortableRoot: Component<SortableRootAttrs<unknown>>;
 export declare const SortableItem: Component<SortableItemAttrs>;

@@ -50,6 +50,7 @@
 .ui-dialog-content {
   min-width: 260px;
   max-width: 88%;
+  max-height: 85%;
   padding: 20px;
   border-radius: 16px;
   background-color: var(--paper);
@@ -69,13 +70,13 @@
 }
 
 @keyframes ui-dialog-content-in {
-  from { opacity: 0; transform: scale(0.92); }
+  from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
 }
 
 @keyframes ui-dialog-content-out {
-  from { opacity: 1; transform: scale(1); }
-  to { opacity: 0; transform: scale(0.92); }
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 .ui-busy {

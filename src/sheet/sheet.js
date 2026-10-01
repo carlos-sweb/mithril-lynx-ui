@@ -94,11 +94,26 @@ function resolveSheetSide(side, enableRTL) {
 	return side;
 }
 
+/**
+ * `100vw`/`100vh`, not "100%": this node's containing block for a
+ * percentage is whatever positioned ancestor SheetView's own `view`
+ * happens to be (position: fixed, itself sized "100%" against ITS OWN
+ * parent) — real device testing (a Drawer's nav list, wrapped in a
+ * <scroll-view> per Lynx's own docs, silently losing every item past what
+ * fit on screen instead of scrolling to them) found that chain does not
+ * reliably resolve, so this side panel ends up shrink-wrapped to its
+ * content's intrinsic size instead of the screen, and anything inside
+ * relying on ITS "height: 100%" (a <scroll-view> needs a real bounded
+ * height to scroll at all — same class of failure as feed-list.js's own
+ * percentage-through-an-imperative-boundary case, see that file's
+ * comment). Viewport units have no ancestor to resolve against, so they
+ * can't inherit that failure.
+ */
 function sheetPositionStyle(resolvedSide) {
-	if (resolvedSide === "top") return { position: "absolute", left: 0, right: 0, top: 0, width: "100%" };
-	if (resolvedSide === "left") return { position: "absolute", top: 0, bottom: 0, left: 0, height: "100%" };
-	if (resolvedSide === "right") return { position: "absolute", top: 0, bottom: 0, right: 0, height: "100%" };
-	return { position: "absolute", left: 0, right: 0, bottom: 0, width: "100%" };
+	if (resolvedSide === "top") return { position: "absolute", left: 0, right: 0, top: 0, width: "100vw" };
+	if (resolvedSide === "left") return { position: "absolute", top: 0, bottom: 0, left: 0, height: "100vh" };
+	if (resolvedSide === "right") return { position: "absolute", top: 0, bottom: 0, right: 0, height: "100vh" };
+	return { position: "absolute", left: 0, right: 0, bottom: 0, width: "100vw" };
 }
 
 function resolveBusyState(state) {
@@ -240,7 +255,11 @@ export const SheetBackdrop = {
 				api.animationAttrs,
 				{
 					class: presenceClassName,
-					style: Object.assign({ width: "100%", height: "100%", position: "absolute" }, style),
+					// 100vw/100vh, not "100%" — same containing-block resolution
+					// failure as sheetPositionStyle() above; a backdrop that
+					// doesn't actually cover the screen is a real, if less
+					// obviously broken, instance of the same bug.
+					style: Object.assign({ width: "100vw", height: "100vh", position: "absolute" }, style),
 					ontap: handleClick,
 					"event-through": false,
 				},
@@ -292,9 +311,25 @@ export const SheetContent = {
 		const s = vnode.state;
 		s.innerEl = createRef(s.refId);
 		if (!s.ctx.enableDragToClose) return;
-		// arenaPolicy {mode:"claim"}: claims the gesture unconditionally on
-		// touch-down (see this file's own header on why, unlike SwipeAction).
-		s.gesture = registerGesture(vnode.dom.firstChild, "native", { mode: "claim" });
+		// Left/right (a drawer): dismiss drags HORIZONTALLY, orthogonal to a
+		// nav list's own vertical <scroll-view> — axis-lock (same policy
+		// swipe-action.js already uses for the identical shape: a horizontal
+		// foreground gesture living alongside vertical scroll content) lets
+		// each win on its own axis. Real bug found on real hardware: this
+		// used to be {mode:"claim"} unconditionally, which made a Drawer's
+		// nested <scroll-view> unscrollable — every touch claimed the arena
+		// on touch-down, before any move existed to tell drag from scroll.
+		// Top/bottom keeps {mode:"claim"} — see this file's own header: a
+		// bottom sheet's dismiss drag is VERTICAL, the same axis a page's
+		// own ancestor <scroll-view> cares about, and axis-lock already
+		// failed there on device once (that's the documented reason "claim"
+		// exists here at all) — this fix only applies where the two drags
+		// are on different axes to begin with.
+		const arenaPolicy =
+			s.ctx.resolvedSide === "left" || s.ctx.resolvedSide === "right"
+				? { mode: "axis-lock", axis: "horizontal", referenceMoves: 0 }
+				: { mode: "claim" };
+		s.gesture = registerGesture(vnode.dom.firstChild, "native", arenaPolicy);
 	},
 
 	onremove(vnode) {

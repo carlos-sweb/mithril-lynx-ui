@@ -101,6 +101,7 @@ export const Draggable = {
 		if (draggableRef != null) {
 			draggableRef.setTransform = (x, y) => writeTransform(s, x, y);
 			draggableRef.getTranslate = () => s.translate;
+			draggableRef.getRect = () => s.el.invoke("boundingClientRect", { relativeTo: "", androidEnableTransformProps: false });
 		}
 	},
 
@@ -126,9 +127,11 @@ export const Draggable = {
 			if (point == null) return;
 
 			const bounds = boundsFor(vnode.attrs);
-			const dx = clamp(point.x - s.startPoint.x, bounds.minX, bounds.maxX);
-			const dy = clamp(point.y - s.startPoint.y, bounds.minY, bounds.maxY);
-			setTransform(s.translateAtStart.x + dx, s.translateAtStart.y + dy);
+			// Bounds apply to the accumulated position, not each gesture's delta.
+			// Clamping before adding translateAtStart lets repeated drags escape.
+			const x = clamp(s.translateAtStart.x + point.x - s.startPoint.x, bounds.minX, bounds.maxX);
+			const y = clamp(s.translateAtStart.y + point.y - s.startPoint.y, bounds.minY, bounds.maxY);
+			setTransform(x, y);
 
 			if (typeof vnode.attrs.onDragging === "function") vnode.attrs.onDragging(s.translate);
 		};

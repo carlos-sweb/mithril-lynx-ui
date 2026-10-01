@@ -61,8 +61,8 @@ export const Checkbox = {
 };
 
 /**
- * Renders its children only once there's something to indicate (checked or
- * indeterminate), unless forceMount is set — matching lynx-ui, where the
+ * Renders custom children or a default check/dash when checked or
+ * indeterminate, unless forceMount is set — matching lynx-ui, where the
  * mark is expected to animate in rather than exist invisibly. Reads both
  * the Checkbox's state and the enclosing Button's, exactly like the
  * original reads both of its contexts.
@@ -73,6 +73,10 @@ export const CheckboxIndicator = {
 		const className = classOf(vnode.attrs);
 		const { checked = false, indeterminate = false } = checkboxScope.useScope() || {};
 		const { active, disabled } = useButtonState();
+		const hasCustomChildren = vnode.children && vnode.children.some((child) => child != null);
+		const mark = hasCustomChildren ? vnode.children : m("view", {
+			class: indeterminate ? "ui-checkbox-mark-dash" : "ui-checkbox-mark-check",
+		});
 
 		return m(
 			"view",
@@ -85,7 +89,7 @@ export const CheckboxIndicator = {
 				}),
 				style,
 			},
-			forceMount || checked || indeterminate ? vnode.children : null,
+			forceMount || checked || indeterminate ? mark : null,
 		);
 	},
 };

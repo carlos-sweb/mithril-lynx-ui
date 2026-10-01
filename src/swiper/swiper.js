@@ -298,7 +298,7 @@ export const Swiper = {
 			"view",
 			{
 				class: cx(className, { "ui-swiper": true, "ui-swiping": s.dragging }),
-				style: Object.assign({ width: `${containerWidth}px`, height: `${itemHeight}px`, overflow: "hidden" }, style),
+				style: Object.assign({ width: `${containerWidth}px`, height: `${itemHeight}px`, overflow: "hidden", alignSelf: "center" }, style),
 				// Same two attrs swipe-action.js's own gesture root carries — copied
 				// for consistency, not because a device bug pinned the failure to
 				// either one specifically (see this file's own device-debugging

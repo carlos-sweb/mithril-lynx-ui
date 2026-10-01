@@ -33,6 +33,20 @@ const baseAttrs = () => ({
 });
 
 describe("swiper.js", () => {
+	it("centers the viewport by default without changing slide dimensions", () => {
+		const app = mount(baseAttrs());
+		const viewport = app.applier.getHandle(app.root._id) as HTMLElement;
+		expect(viewport.style.alignSelf).toBe("center");
+		expect(viewport.style.width).toBe("100px");
+		expect(viewport.style.height).toBe("50px");
+	});
+
+	it("preserves explicit viewport alignment and width", () => {
+		const app = mount({ ...baseAttrs(), containerWidth: 180, style: { alignSelf: "flex-start" } });
+		const viewport = app.applier.getHandle(app.root._id) as HTMLElement;
+		expect(viewport.style.alignSelf).toBe("flex-start");
+		expect(viewport.style.width).toBe("180px");
+	});
 	it("registers a native gesture on mount and claims it on touch down", async () => {
 		const app = mount(baseAttrs());
 		await settle();

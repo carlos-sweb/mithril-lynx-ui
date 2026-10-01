@@ -34,18 +34,24 @@ runs on Node's V8, and passed cleanly for the two bugs above).
 
 ## Verifying on a real device
 
-This repo's own `demo/` + `demo-android/` is the way to catch this class of
-bug at all:
+Use the sibling `../demo-ui/` app with Lynx Go and Lynx DevTool for regular
+visual and gesture debugging. It avoids rebuilding and installing an APK for
+every change:
 
-1. `cd demo && npx rspeedy build --mode development` (unminified — gives
-   readable stack traces via `adb logcat`; `--mode production` for a final
-   sanity check once something works).
-2. `cp demo/dist/main-thread.bundle demo-android/app/src/main/assets/main-thread.bundle`
-3. `cd demo-android && ./gradlew installDebug`
-4. `adb shell am force-stop com.carlossweb.mithrillynxui && adb shell am start -W com.carlossweb.mithrillynxui/.MainActivity`
-5. Interact via `adb shell input tap/swipe ...`, inspect with
-   `adb exec-out screencap -p`, and check `adb logcat -d | grep "not a function"`
-   (or whatever error class you're chasing) after each interaction.
+1. In `../demo-ui/`, run `npm run dev` and keep the server running.
+2. Run `adb reverse tcp:3000 tcp:3000` on the connected device.
+3. Open the bundle in Lynx Go:
+   `adb shell am start -a android.intent.action.VIEW -d 'lynx://open?url=http%3A%2F%2F127.0.0.1%3A3000%2Fmain-thread.bundle%3Ffullscreen%3Dtrue' -p com.funcs.io.lynx.go`
+4. Use `npx --yes agent-lynx list-sessions`, `get-console`, `screenshot`, and
+   CDP inspection to diagnose the live Lynx page. `adb shell input swipe`
+   remains useful for reproducible drag gestures.
+5. The app depends on a packed library snapshot. After editing this library,
+   pack a new archive, update the demo's dependency path, run `npm install`,
+   and restart the dev server so it resolves the new package.
+
+Build the sibling `../demo-ui-android/` APK only for final native-host
+integration checks or behavior unavailable in Lynx Go. The old in-repo
+`demo/` app was removed; do not recreate it as the default debugging path.
 
 A passing `rstest` suite is necessary but not sufficient — it only proves the
 logic is correct against a jsdom polyfill of Lynx's PAPI, not that every JS

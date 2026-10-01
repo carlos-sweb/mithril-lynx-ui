@@ -59,6 +59,32 @@ describe("checkbox.js", () => {
 		expect(indicator().className).toContain("ui-checked");
 	});
 
+	it("the owner can resolve indeterminate selection, then toggle and reset", () => {
+		let checked = false;
+		let indeterminate = true;
+		const changes: boolean[] = [];
+		const app = mount(() => m(Checkbox, {
+			checked, indeterminate,
+			onChange: (next: boolean) => {
+				checked = next;
+				indeterminate = false;
+				changes.push(next);
+			},
+		}, m(CheckboxIndicator)));
+		const mark = () => app.root.firstChild!.firstChild;
+		expect(mark()!.className).toBe("ui-checkbox-mark-dash");
+		fire(app.root, "tap");
+		expect(mark()!.className).toBe("ui-checkbox-mark-check");
+		expect(app.root.className).not.toContain("ui-indeterminate");
+		fire(app.root, "tap");
+		expect(mark()).toBeNull();
+		expect(changes).toEqual([true, false]);
+		checked = false;
+		indeterminate = true;
+		app.redraw();
+		expect(mark()!.className).toBe("ui-checkbox-mark-dash");
+	});
+
 	it("forceMount keeps the children mounted while unchecked", () => {
 		const app = mount(() =>
 			m(
@@ -69,6 +95,39 @@ describe("checkbox.js", () => {
 		);
 
 		expect(textOf(app.root.firstChild!)).toBe("x");
+	});
+
+	it("shows a default check when selected and removes it when unchecked", () => {
+		let checked = false;
+		const app = mount(() => m(Checkbox, { checked }, m(CheckboxIndicator)));
+		expect(app.root.firstChild!.firstChild).toBeNull();
+		checked = true;
+		app.redraw();
+		expect(app.root.firstChild!.firstChild!.className).toBe("ui-checkbox-mark-check");
+		checked = false;
+		app.redraw();
+		expect(app.root.firstChild!.firstChild).toBeNull();
+	});
+
+	it("indeterminate uses a dash, including when also checked", () => {
+		let indeterminate = true;
+		const app = mount(() => m(Checkbox, { checked: true, indeterminate }, m(CheckboxIndicator)));
+		expect(app.root.firstChild!.firstChild!.className).toBe("ui-checkbox-mark-dash");
+		indeterminate = false;
+		app.redraw();
+		expect(app.root.firstChild!.firstChild!.className).toBe("ui-checkbox-mark-check");
+	});
+
+	it("keeps the selected mark visible when disabled", () => {
+		const app = mount(() => m(Checkbox, { checked: true, disabled: true }, m(CheckboxIndicator)));
+		expect(app.root.firstChild!.firstChild!.className).toBe("ui-checkbox-mark-check");
+		fire(app.root, "tap");
+		expect(app.root.firstChild!.firstChild!.className).toBe("ui-checkbox-mark-check");
+	});
+
+	it("forceMount also mounts the default mark", () => {
+		const app = mount(() => m(Checkbox, m(CheckboxIndicator, { forceMount: true })));
+		expect(app.root.firstChild!.firstChild!.className).toBe("ui-checkbox-mark-check");
 	});
 });
 

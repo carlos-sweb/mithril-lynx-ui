@@ -7,6 +7,7 @@ import {
 	DialogRoot,
 	DialogTrigger,
 	DialogView,
+	handleDialogBack,
 } from "../src/dialog/dialog.js";
 import { mount, fire, styleOf, type Mounted, type TestNode } from "./harness.js";
 
@@ -57,6 +58,56 @@ function messageOfThrow(fn: () => unknown): string {
 }
 
 describe("dialog.js", () => {
+	it("rapid dismiss does not leave the trigger busy or poison the next opening", async () => {
+		const app = mount(() => m(DialogRoot, {}, [
+			m(DialogTrigger, { class: "trigger" }, m("text", "Open")),
+			m(DialogView, {}, [m(DialogBackdrop, { class: "backdrop" }), m(DialogContent, { class: "content" })]),
+		]));
+		const trigger = app.root;
+		fire(trigger, "tap");
+		await frames(1);
+		expect(handleDialogBack()).toBe(true);
+		app.redraw();
+		await frames(LEAVE_SETTLE);
+		expect(trigger.className).not.toContain("ui-busy");
+		fire(trigger, "tap");
+		await frames(ENTER_SETTLE);
+		expect(isMarker(app, trigger.nextSibling)).toBe(false);
+		expect(trigger.nextSibling!.firstChild!.className).toContain("ui-open");
+	});
+
+	it("missing animationend cannot hold a dialog busy forever", async () => {
+		const app = mount(() => m(DialogRoot, { defaultShow: true }, m(DialogView, { animationTimeout: 160 }, m(DialogBackdrop, { class: "backdrop" }))));
+		await frames(2);
+		fire(app.root.firstChild!, "animationstart");
+		await frames(20);
+		expect(app.root.firstChild!.className).toContain("ui-open");
+		expect(app.root.firstChild!.className).not.toContain("ui-entering");
+	});
+
+	it("force-mounted closed dialogs do not intercept touches", async () => {
+		const app = mount(() => m(DialogRoot, { forceMount: true }, m(DialogView, {}, m(DialogBackdrop))));
+		await settle();
+		expect(styleOf(app, app.root).display).toBe("none");
+	});
+
+	it("transparent backdrop overrides the scrim without disabling dismissal", async () => {
+		const app = mount(() => m(DialogRoot, { defaultShow: true }, m(DialogView, {}, m(DialogBackdrop, { variant: "transparent" }))));
+		await frames(ENTER_SETTLE);
+		expect(styleOf(app, app.root.firstChild!)["background-color"]).toBe("transparent");
+		fire(app.root.firstChild!, "tap");
+		await frames(LEAVE_SETTLE);
+		expect(isMarker(app, app.root)).toBe(true);
+	});
+
+	it("Android Back consumes a non-dismissible modal without closing it", async () => {
+		const app = mount(() => m(DialogRoot, { defaultShow: true, closeOnBack: false }, m(DialogView, {}, m(DialogContent))));
+		await frames(ENTER_SETTLE);
+		expect(handleDialogBack()).toBe(true);
+		await settle();
+		expect(isMarker(app, app.root)).toBe(false);
+	});
+
 	it("uncontrolled: DialogTrigger opens it, DialogClose closes it", async () => {
 		const app = mount(() =>
 			m(DialogRoot, {}, [
@@ -249,5 +300,9 @@ describe("dialog.js", () => {
 		expect(messageOfThrow(() => mount(() => m(DialogRoot, {}, m(DialogBackdrop, {}))))).toMatch(
 			/must be used inside a <DialogView>/,
 		);
+	});
+
+	it("blur requires a separate capture target", () => {
+		expect(messageOfThrow(() => mount(() => m(DialogRoot, { forceMount: true }, m(DialogView, {}, m(DialogBackdrop, { variant: "blur" })))))).toMatch(/requires captureTarget/);
 	});
 });

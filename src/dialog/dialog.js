@@ -1,9 +1,8 @@
 // dialog.js
 //
-// Mithril port of @lynx-js/lynx-ui-dialog (Apache-2.0 — see ./NOTICE): a
-// modal overlay built entirely on Presence — DialogRoot/DialogTrigger/
-// DialogClose/DialogView/DialogBackdrop/DialogContent, matching the real
-// source's split exactly (read in full before writing anything here).
+// Mithril compound modal built on Presence (Apache-2.0 — see ../NOTICE).
+// Each animated part owns its lifecycle. Group completion, not an open
+// counter, controls unmounting so interrupted entry cannot strand a modal.
 //
 // One deliberate scope cut, documented rather than silently dropped: the
 // original's DialogView accepts a `container` prop that swaps its plain
@@ -42,8 +41,42 @@ import { renderChildren } from "../internal/press.js";
 import { nativeBool } from "../internal/native.js";
 import { PresenceState, Presence, resolveAnimationStatus, usePresence } from "../presence/presence.js";
 import { createScope } from "../scope/scope.js";
+import { delayFrames } from "../internal/frames.js";
+import { ensureId, invokeNative } from "../internal/native-ref.js";
 
 const dialogScope = createScope();
+const openDialogs = [];
+const visibilityListeners = new Set();
+
+function focusAccessible(id) {
+	if (id && typeof lynx !== "undefined" && typeof lynx.createSelectorQuery === "function") {
+		invokeNative(id, "requestAccessibilityFocus", {}).catch(() => {});
+	}
+}
+
+function updateStack(api, visible) {
+	const index = openDialogs.indexOf(api);
+	if (visible && index < 0) openDialogs.push(api);
+	if (!visible && index >= 0) openDialogs.splice(index, 1);
+	if ((visible && index < 0) || (!visible && index >= 0)) {
+		visibilityListeners.forEach((listener) => listener(openDialogs.length > 0));
+	}
+}
+
+/** Consume Back for the topmost dialog, including non-dismissible dialogs. */
+export function handleDialogBack() {
+	const api = openDialogs[openDialogs.length - 1];
+	if (!api) return false;
+	if (api.closeOnBack) api.requestShow(false);
+	return true;
+}
+
+/** Observe modal availability so the Android host can enable its Back callback. */
+export function subscribeDialogVisibility(listener) {
+	visibilityListeners.add(listener);
+	listener(openDialogs.length > 0);
+	return () => visibilityListeners.delete(listener);
+}
 
 function resolveBusyState(state) {
 	return state === PresenceState.Entering || state === PresenceState.DelayedEntering || state === PresenceState.Leaving;
@@ -85,6 +118,7 @@ function combineGroupStates(states) {
 	if (states.some((s) => s === PresenceState.Entering)) return PresenceState.Entering;
 	if (states.some((s) => s === PresenceState.Leaving)) return PresenceState.Leaving;
 	if (states.length > 0 && states.every((s) => s === PresenceState.Entered)) return PresenceState.Entered;
+	if (states.some((s) => s === PresenceState.Entered)) return PresenceState.Entered;
 	return PresenceState.Left;
 }
 
@@ -111,7 +145,13 @@ export const DialogRoot = {
 			onShowChange: vnode.attrs.onShowChange,
 			debugLog: vnode.attrs.debugLog,
 		};
+		s.api.requestShow = (next) => {
+			if (s.api.show === next) return;
+			if (typeof s.api.onShowChange === "function") s.api.onShowChange(next);
+			s.api.setUncontrolledShow(next);
+		};
 	},
+	onremove(vnode) { updateStack(vnode.state.api, false); },
 
 	view(vnode) {
 		const s = vnode.state;
@@ -123,6 +163,10 @@ export const DialogRoot = {
 		s.api.onClose = vnode.attrs.onClose;
 		s.api.onShowChange = vnode.attrs.onShowChange;
 		s.api.debugLog = vnode.attrs.debugLog;
+		s.api.closeOnBack = vnode.attrs.closeOnBack !== false;
+		s.api.reducedMotion = vnode.attrs.reducedMotion === true;
+		s.api.initialFocusId = vnode.attrs.initialFocusId;
+		s.api.restoreFocusId = vnode.attrs.restoreFocusId;
 
 		const status = resolveAnimationStatus(s.api.groupState, false, true);
 		return m(dialogScope.Provider, { value: s.api }, renderChildren(status, vnode.children));
@@ -141,24 +185,25 @@ function dialogButtonView(vnode, changeShow) {
 	const presenceClassName = dialogClasses(status, className, transition);
 
 	const handleClick = () => {
-		if (typeof ctx.onShowChange === "function") ctx.onShowChange(changeShow);
-		ctx.setUncontrolledShow(changeShow);
+		if (changeShow) ctx.triggerId = vnode.state.id;
+		ctx.requestShow(changeShow);
 	};
 
 	return m(
 		Button,
 		{
+			buttonProps: Object.assign({ id: vnode.state.id, "accessibility-element": nativeBool(true), "accessibility-trait": "button" }, vnode.attrs.buttonProps),
 			style,
 			className: cx(presenceClassName, { "ui-busy": busy }),
-			disabled: busy || disabled,
+			disabled: (changeShow && busy) || disabled,
 			onClick: handleClick,
 		},
 		withExtraProps({ busy }, vnode.children),
 	);
 }
 
-export const DialogTrigger = { view: (vnode) => dialogButtonView(vnode, true) };
-export const DialogClose = { view: (vnode) => dialogButtonView(vnode, false) };
+export const DialogTrigger = { oninit: (vnode) => { vnode.state.id = ensureId(vnode.attrs.buttonProps?.id); }, view: (vnode) => dialogButtonView(vnode, true) };
+export const DialogClose = { oninit: (vnode) => { vnode.state.id = ensureId(vnode.attrs.buttonProps?.id); }, view: (vnode) => dialogButtonView(vnode, false) };
 
 export const DialogBackdrop = {
 	view(vnode) {
@@ -166,15 +211,15 @@ export const DialogBackdrop = {
 		if (api == null) throw new Error("mithril-lynx-ui: <DialogBackdrop> must be used inside a <DialogView>");
 		const ctx = dialogScope.useScope();
 		if (ctx == null) throw new Error("mithril-lynx-ui: <DialogBackdrop> must be used inside a <DialogRoot>");
-		const { style, clickToClose = true, transition, dialogBackdropProps, onClick } = vnode.attrs;
+		const { style, clickToClose = true, transition = true, dialogBackdropProps, onClick,
+			color, variant = "dim", blurRadius = "12px", captureTarget, blurViewProps } = vnode.attrs;
 		const className = classOf(vnode.attrs);
-		const presenceClassName = dialogClasses(api.status, className, transition);
-		const busy = resolveBusyState(ctx.groupState);
+		const presenceClassName = dialogClasses(api.status, className, transition && !ctx.reducedMotion);
+		if (variant === "blur" && !captureTarget) throw new Error("mithril-lynx-ui: blur backdrop requires captureTarget (a separate, non-flattened background view)");
 
 		const handleClick = () => {
-			if (!clickToClose || busy) return;
-			if (typeof ctx.onShowChange === "function") ctx.onShowChange(false);
-			ctx.setUncontrolledShow(false);
+			if (!clickToClose || !ctx.show) return;
+			ctx.requestShow(false);
 			if (typeof onClick === "function") onClick();
 		};
 
@@ -185,24 +230,36 @@ export const DialogBackdrop = {
 				api.animationAttrs,
 				{
 					class: presenceClassName,
-					style: Object.assign({ width: "100%", height: "100%", position: "absolute" }, style),
+					style: Object.assign({ width: "100%", height: "100%", position: "absolute" },
+						color ? { "background-color": color } : {}, variant === "transparent" ? { "background-color": "transparent" } : {}, style),
 					ontap: handleClick,
-					"event-through": false,
+					"event-through": nativeBool(false),
+					"accessibility-elements-hidden": nativeBool(true),
 				},
 				dialogBackdropProps,
 			),
-			vnode.children,
+			[variant === "blur" ? m("blur-view", Object.assign({}, blurViewProps, {
+				"blur-radius": blurRadius, "android-capture-target": captureTarget,
+				style: { position: "absolute", width: "100%", height: "100%" },
+				"event-through": nativeBool(true),
+			}), m("view", {
+				style: { position: "absolute", width: "100%", height: "100%", "background-color": color || "transparent" },
+				ontap: handleClick, "event-through": nativeBool(false), flatten: nativeBool(false),
+			})) : null, vnode.children],
 		);
 	},
 };
 
 export const DialogContent = {
+	oninit(vnode) { vnode.state.id = ensureId(vnode.attrs.dialogContentProps?.id); },
 	view(vnode) {
 		const api = usePresence();
 		if (api == null) throw new Error("mithril-lynx-ui: <DialogContent> must be used inside a <DialogView>");
-		const { style, transition, dialogContentProps } = vnode.attrs;
+		const ctx = dialogScope.useScope();
+		const { style, transition = true, dialogContentProps, accessibilityLabel } = vnode.attrs;
 		const className = classOf(vnode.attrs);
-		const presenceClassName = dialogClasses(api.status, className, transition);
+		ctx.contentId = vnode.state.id;
+		const presenceClassName = dialogClasses(api.status, className, transition && !ctx.reducedMotion);
 
 		return m(
 			"view",
@@ -211,14 +268,28 @@ export const DialogContent = {
 				api.animationAttrs,
 				{
 					class: presenceClassName,
+					id: vnode.state.id,
 					style,
 					overlap: nativeBool(false),
-					"event-through": false,
+					"event-through": nativeBool(false),
+					"accessibility-element": nativeBool(false),
+					"accessibility-label": accessibilityLabel,
 				},
 				dialogContentProps,
 			),
 			vnode.children,
 		);
+	},
+};
+
+/** Scroll only the body; keep the title and action buttons outside it. */
+export const DialogBody = {
+	view(vnode) {
+		return m("scroll-view", Object.assign({}, vnode.attrs.scrollViewProps, {
+			class: classOf(vnode.attrs), "scroll-orientation": "vertical",
+			"enable-nested-scroll": nativeBool(true), "force-can-scroll": nativeBool(true),
+			style: Object.assign({ width: "100%", height: vnode.attrs.height ?? "240px", "max-height": "55vh", "flex-shrink": 1 }, vnode.attrs.style),
+		}), vnode.children);
 	},
 };
 
@@ -228,31 +299,62 @@ export const DialogView = {
 		const children = Array.isArray(vnode.children) ? vnode.children : [vnode.children];
 		s.stateGroup = children.map(() => PresenceState.Left);
 		s.mountView = false;
-		s.mountedCount = 0;
+		s.stateByKey = new Map();
+		s.cycle = false;
+		s.openNotified = false;
+		s.generation = 0;
+	},
+	onremove(vnode) {
+		const s = vnode.state;
+		s.disposed = true;
+		s.generation += 1;
+		if (s.ctx) { s.ctx.groupState = PresenceState.Left; updateStack(s.ctx, false); }
 	},
 
 	view(vnode) {
 		const s = vnode.state;
 		const ctx = dialogScope.useScope();
 		if (ctx == null) throw new Error("mithril-lynx-ui: <DialogView> must be used inside a <DialogRoot>");
+		s.ctx = ctx;
 		const { style, transition, dialogViewProps } = vnode.attrs;
 		const className = classOf(vnode.attrs);
 		const { show, forceMount } = ctx;
 
 		const children = Array.isArray(vnode.children) ? vnode.children : [vnode.children];
+		const keys = children.map((child, index) => child?.key ?? index);
+		s.stateGroup = keys.map((key) => s.stateByKey.get(key) ?? PresenceState.Left);
+		for (const key of s.stateByKey.keys()) if (!keys.includes(key)) s.stateByKey.delete(key);
 
-		// Gated on mountedCount, NOT on stateGroup directly: mountedCount only
-		// reaches 0 once EVERY child's own onClose has already fired, which
-		// presence.js always defers one frame past the render that first
-		// commits that child's Left state (see makeController's defer()).
-		// Gating on stateGroup.every(Left) instead unmounts (returns null) on
-		// the very SAME render where the LAST child's state first becomes
-		// Left — before that child's own Presence ever gets an update cycle
-		// to notice it and fire its own onLeft()/onClose, silently dropping
-		// the group's onClose whenever the two children don't finish leaving
-		// on the exact same render (the common case, not an edge case).
-		if (show) s.mountView = true;
-		else if (s.mountedCount === 0) s.mountView = false;
+		// Notify once per cycle, outside rendering. Interrupted entry still
+		// completes its close cycle without waiting for an onOpen notification.
+		const groupState = combineGroupStates(s.stateGroup);
+		if (show) { s.mountView = true; s.cycle = true; }
+		else if (groupState === PresenceState.Left) {
+			s.mountView = false;
+			ctx.groupState = PresenceState.Left;
+			if (s.cycle) {
+				s.cycle = false;
+				s.openNotified = false;
+				const generation = ++s.generation;
+				delayFrames(1, () => {
+					if (s.disposed || generation !== s.generation || ctx.show) return;
+					focusAccessible(ctx.restoreFocusId || ctx.triggerId);
+					if (typeof ctx.onClose === "function") ctx.onClose();
+					redraw();
+				});
+			}
+		}
+		if (show && s.stateGroup.length > 0 && s.stateGroup.every((state) => state === PresenceState.Entered) && !s.openNotified) {
+			s.openNotified = true;
+			const generation = ++s.generation;
+			delayFrames(1, () => {
+				if (s.disposed || generation !== s.generation || !ctx.show) return;
+				focusAccessible(ctx.initialFocusId || ctx.contentId);
+				if (typeof ctx.onOpen === "function") ctx.onOpen();
+				redraw();
+			});
+		}
+		updateStack(ctx, show || groupState !== PresenceState.Left);
 
 		const groupStatus = resolveAnimationStatus(combineGroupStates(s.stateGroup), false, true);
 		const presenceClassName = dialogClasses(groupStatus, className, transition);
@@ -263,31 +365,17 @@ export const DialogView = {
 			m(
 				Presence,
 				{
-					key: index,
+					key: keys[index],
 					show,
 					forceMount,
+					enterDelayFrames: 1,
+					animationTimeout: ctx.reducedMotion ? 0 : (vnode.attrs.animationTimeout ?? 500),
 					state: s.stateGroup[index],
 					setPresenceState: (state) => {
+						if (s.disposed) return;
+						s.stateByKey.set(keys[index], state);
 						s.stateGroup[index] = state;
 						ctx.groupState = combineGroupStates(s.stateGroup);
-					},
-					// Unlike setPresenceState above, presence.js's own onEntered/onLeft
-					// never call redraw() after invoking onOpen/onClose (only
-					// setState's callers do, for the state transition itself) — so
-					// without a redraw here, mountedCount reaching 0 would update
-					// silently and DialogView would never get another view() call to
-					// notice it and actually return null. Always safe to call: like
-					// setPresenceState, this only ever runs from presence.js's own
-					// defer() (a delayFrames(1, ...) callback), never mid-render.
-					onOpen: () => {
-						s.mountedCount += 1;
-						if (s.mountedCount === children.length && typeof ctx.onOpen === "function") ctx.onOpen();
-						redraw();
-					},
-					onClose: () => {
-						s.mountedCount -= 1;
-						if (s.mountedCount === 0 && typeof ctx.onClose === "function") ctx.onClose();
-						redraw();
 					},
 				},
 				child,
@@ -306,8 +394,13 @@ export const DialogView = {
 				{},
 				{
 					class: presenceClassName,
+					"event-through": nativeBool(!s.mountView),
+					"accessibility-elements-hidden": nativeBool(!s.mountView),
+					"accessibility-exclusive-focus": nativeBool(s.mountView),
+					flatten: nativeBool(false),
+					"native-interaction-enabled": nativeBool(s.mountView),
 					style: Object.assign(
-						{ position: "fixed", width: "100%", height: "100%", display: "flex", "justify-content": "center", "align-items": "center" },
+						{ position: "fixed", width: "100%", height: "100%", display: s.mountView ? "flex" : "none", "justify-content": "center", "align-items": "center", "z-index": 1000 },
 						style,
 					),
 				},

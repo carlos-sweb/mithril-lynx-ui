@@ -6,6 +6,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.lynx.tasm.LynxViewBuilder
 import com.lynx.tasm.ThreadStrategyForRendering
+import com.lynx.tasm.fontface.FontFaceManager
 import com.lynx.xelement.XElementBehaviors
 
 /**
@@ -39,6 +40,26 @@ class MainActivity : AppCompatActivity() {
         builder.setTemplateProvider(AssetTemplateProvider(this))
         val lynxView = builder.build(this)
         setContentView(lynxView)
+
+        // Prefetch the custom font on Lynx's own IO thread pool as early as
+        // possible — before renderTemplateUrl() below ever gives the
+        // bundle's CSS a chance to trigger @font-face resolution during the
+        // first layout, which resolves synchronously inside
+        // __FlushElementTree() and costs real cold-start time on a
+        // low/mid-end device. FontFaceManager caches by the exact "src"
+        // string, so this "asset:///fonts/inter.ttf" URI must match
+        // style.css's @font-face src url() byte-for-byte for the later real
+        // lookup to hit this warmed cache entry — see
+        // AssetFontFaceLoader.kt's own header and
+        // https://github.com/lynx-family/lynx/issues/9431.
+        FontFaceManager.getInstance().prefetchFont(
+            lynxView.lynxContext,
+            "asset:///fonts/inter.ttf",
+            null,
+            object : FontFaceManager.FontFacePrefetchListener {
+                override fun onComplete(code: Int, msg: String) {}
+            },
+        )
 
         lynxView.renderTemplateUrl("main-thread.bundle", "")
     }

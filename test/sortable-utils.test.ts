@@ -1,93 +1,44 @@
 import { describe, expect, it } from "@rstest/core";
 import { createSwapTracker, findSwapTarget, sortKeyArray, updateSwapTracking } from "../src/sortable/sortable-utils.js";
 
-const KEYS = ["a", "b", "c", "d"];
-const SIZES = { a: 100, b: 100, c: 100, d: 100 };
+const keys = ["a", "b", "c", "d"];
+const slots = {
+  a: { top: 0, height: 64 },
+  b: { top: 68, height: 64 },
+  c: { top: 136, height: 64 },
+  d: { top: 204, height: 64 },
+};
 
-describe("internal/sortable-utils.js", () => {
-  describe("findSwapTarget", () => {
-    it("targets the immediate neighbor while still within its own size", () => {
-      expect(findSwapTarget(KEYS, SIZES, {}, "a", 40)).toEqual({ index: 1, distance: 0 });
-      expect(findSwapTarget(KEYS, SIZES, {}, "a", 100)).toEqual({ index: 1, distance: 0 });
-    });
-
-    it("skips past a fully-crossed neighbor onto the next one", () => {
-      expect(findSwapTarget(KEYS, SIZES, {}, "a", 150)).toEqual({ index: 2, distance: 100 });
-    });
-
-    it("works in the negative (upward) direction too", () => {
-      const result = findSwapTarget(KEYS, SIZES, {}, "b", -40);
-      expect(result.index).toBe(0);
-      expect(Math.abs(result.distance)).toBe(0); // may be -0, arithmetically equal
-    });
-
-    it("reports no target when dragged past the end of the list", () => {
-      expect(findSwapTarget(KEYS, SIZES, {}, "a", -40).index).toBe(-1);
-      expect(findSwapTarget(KEYS, SIZES, {}, "d", 40).index).toBe(-1);
-    });
-
-    it("lets the dragged item cross a disabled sibling without targeting it", () => {
-      const disabled = { b: true };
-      // Still within disabled b's own span — no target yet.
-      expect(findSwapTarget(KEYS, SIZES, disabled, "a", 50).index).toBe(-1);
-      // Crosses all of b (100) and lands inside c — targets c, accounting for b's size.
-      expect(findSwapTarget(KEYS, SIZES, disabled, "a", 150)).toEqual({ index: 2, distance: 100 });
-    });
+describe("sortable geometry", () => {
+  it("does not confirm in the gap or before the next row's midpoint", () => {
+    expect(findSwapTarget(keys, slots, {}, "b", -34)).toBe("");
+    expect(findSwapTarget(keys, slots, {}, "b", -67)).toBe("");
+    expect(findSwapTarget(keys, slots, {}, "b", -68)).toBe("a");
+    expect(findSwapTarget(keys, slots, {}, "a", 67)).toBe("");
+    expect(findSwapTarget(keys, slots, {}, "a", 68)).toBe("b");
   });
 
-  describe("updateSwapTracking", () => {
-    it("confirms a swap once dragged past half the target's size, not before", () => {
-      const tracker = createSwapTracker();
-      const opts = { keyArray: KEYS, sizeMap: SIZES, disabledKeys: {}, sortingKey: "a" };
-
-      updateSwapTracking(tracker, { ...opts, movingDistance: 40 });
-      expect(tracker.lastSwappedKey).toBe(""); // 40 <= 50% of 100: not yet confirmed
-
-      const writes = updateSwapTracking(tracker, { ...opts, movingDistance: 60 });
-      expect(tracker.lastSwappedKey).toBe("b");
-      expect(writes).toEqual([{ key: "b", translate: -60 }]);
-    });
-
-    it("un-confirms a swap when dragged back below the threshold", () => {
-      const tracker = createSwapTracker();
-      const opts = { keyArray: KEYS, sizeMap: SIZES, disabledKeys: {}, sortingKey: "a" };
-
-      updateSwapTracking(tracker, { ...opts, movingDistance: 80 });
-      expect(tracker.lastSwappedKey).toBe("b");
-
-      updateSwapTracking(tracker, { ...opts, movingDistance: 10 });
-      expect(tracker.lastSwappedKey).toBe(""); // back near the origin, not the neighbor before b either
-    });
-
-    it("clamps a since-passed target back to 0 once the drag moves on without confirming it", () => {
-      const tracker = createSwapTracker();
-      const opts = { keyArray: KEYS, sizeMap: SIZES, disabledKeys: {}, sortingKey: "a" };
-
-      updateSwapTracking(tracker, { ...opts, movingDistance: 80 }); // confirms swap with b
-      expect(tracker.lastSwappedKey).toBe("b");
-
-      updateSwapTracking(tracker, { ...opts, movingDistance: 150 }); // now tracking c, not yet confirmed (50 <= 50%)
-      expect(tracker.lastSwappingKey).toBe("c");
-      expect(tracker.lastSwappedKey).toBe("b"); // still b — c was never confirmed
-
-      const writes = updateSwapTracking(tracker, { ...opts, movingDistance: 10 }); // back near origin
-      // c (tracked but never confirmed) clamps back to 0; the newly-retargeted b gets un-confirmed.
-      expect(writes.find((w) => w.key === "c")).toEqual({ key: "c", translate: 0 });
-      expect(tracker.lastSwappedKey).toBe("");
-    });
+  it("uses actual row midpoints when heights differ", () => {
+    const unequal = { a: { top: 0, height: 40 }, b: { top: 44, height: 100 }, c: { top: 148, height: 60 } };
+    expect(findSwapTarget(["a", "b", "c"], unequal, {}, "a", 73)).toBe("");
+    expect(findSwapTarget(["a", "b", "c"], unequal, {}, "a", 74)).toBe("b");
   });
 
-  describe("sortKeyArray", () => {
-    it("moves the dragged item to sit where the swapped item is, pushing it forward", () => {
-      expect(sortKeyArray(KEYS, {}, "a", "c")).toEqual(["b", "c", "a", "d"]);
-    });
+  it("projects siblings into their new slots and restores them on reversal", () => {
+    const tracker = createSwapTracker();
+    expect(updateSwapTracking(tracker, { keyArray: keys, slotMap: slots, disabledKeys: {}, sortingKey: "a", movingDistance: 140 }))
+      .toEqual([{ key: "b", translate: -68 }, { key: "c", translate: -68 }, { key: "d", translate: 0 }]);
+    expect(tracker.lastSwappedKey).toBe("c");
+    expect(updateSwapTracking(tracker, { keyArray: keys, slotMap: slots, disabledKeys: {}, sortingKey: "a", movingDistance: 10 }))
+      .toEqual([{ key: "b", translate: 0 }, { key: "c", translate: 0 }, { key: "d", translate: 0 }]);
+    expect(tracker.lastSwappedKey).toBe("");
+  });
 
-    it("is a no-op when there's no confirmed swap target", () => {
-      expect(sortKeyArray(KEYS, {}, "a", "")).toEqual(KEYS);
-    });
-
-    it("keeps a disabled item's absolute index in the result", () => {
-      expect(sortKeyArray(KEYS, { b: true }, "a", "c")).toEqual(["c", "b", "a", "d"]);
-    });
+  it("keeps disabled rows fixed while crossing them", () => {
+    const tracker = createSwapTracker();
+    const writes = updateSwapTracking(tracker, { keyArray: keys, slotMap: slots, disabledKeys: { b: true }, sortingKey: "a", movingDistance: 136 });
+    expect(tracker.lastSwappedKey).toBe("c");
+    expect(writes).toEqual([{ key: "c", translate: -136 }, { key: "d", translate: 0 }]);
+    expect(sortKeyArray(keys, { b: true }, "a", "c")).toEqual(["c", "b", "a", "d"]);
   });
 });

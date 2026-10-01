@@ -15,6 +15,8 @@ export type AllowedDirection = "all" | "none" | BasicDirection | BasicDirection[
 export interface DraggableRef {
   setTransform(x: number, y: number): void;
   getTranslate(): Point;
+  /** Untransformed native layout rectangle, relative to the LynxView. */
+  getRect(): Promise<{ top: number; height: number }>;
 }
 
 export interface DraggableAttrs {

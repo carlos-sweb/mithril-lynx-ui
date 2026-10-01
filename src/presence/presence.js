@@ -106,7 +106,7 @@ function makeController(s) {
 	// Deferring is the library's job, not the caller's.
 	const defer = (fn) => {
 		if (typeof fn !== "function") return;
-		delayFrames(1, fn);
+		delayFrames(1, () => { if (!s.disposed) fn(); });
 	};
 
 	const scheduleRedraw = () => {
@@ -114,11 +114,13 @@ function makeController(s) {
 		s.redrawScheduled = true;
 		delayFrames(1, () => {
 			s.redrawScheduled = false;
+			if (s.disposed) return;
 			redraw();
 		});
 	};
 
 	const setState = (next) => {
+		if (s.disposed) return;
 		if (typeof s.attrs.setPresenceState === "function") s.attrs.setPresenceState(next);
 		else s.internalState = next;
 		scheduleRedraw();
@@ -145,7 +147,7 @@ function makeController(s) {
 	const scheduleShow = () => {
 		const scheduleId = s.showScheduleId;
 		setMount(true);
-		delayFrames(8, () => {
+		delayFrames(s.attrs.enterDelayFrames ?? 8, () => {
 			if (scheduleId !== s.showScheduleId || !s.attrs.show) return;
 			setState(PresenceState.Entering);
 		});
@@ -291,12 +293,22 @@ function makeController(s) {
 	 * the show effect, matching the order they're declared in upstream.
 	 */
 	const runEffects = () => {
+		if (s.disposed) return;
 		const state = currentState(s);
 		const show = s.attrs.show === true;
 		const enableDelay = s.attrs.enableDelay === true;
 		const enteringState = enableDelay ? PresenceState.DelayedEntering : PresenceState.Entering;
 
 		if (!s.effectsStarted || s.lastState !== state) {
+			clearTimeout(s.completionTimer);
+			if (s.attrs.animationTimeout !== undefined && (state === PresenceState.Entering || state === PresenceState.Leaving)) {
+				s.completionTimer = setTimeout(() => {
+					if (s.disposed || currentState(s) !== state) return;
+					s.isKFAnimating = false;
+					s.isTransitionAnimating = false;
+					setState(s.attrs.show ? PresenceState.Entered : PresenceState.Left);
+				}, s.attrs.animationTimeout);
+			}
 			s.lastState = state;
 			if (state === PresenceState.Entered) onEntered();
 			if (state === PresenceState.Left) onLeft();
@@ -369,6 +381,15 @@ export const Presence = {
 
 	onupdate(vnode) {
 		vnode.state.controller.runEffects();
+	},
+
+	onremove(vnode) {
+		const s = vnode.state;
+		s.disposed = true;
+		s.showScheduleId += 1;
+		s.enteringLoopId += 1;
+		s.leavingLoopId += 1;
+		clearTimeout(s.completionTimer);
 	},
 };
 

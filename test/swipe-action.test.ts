@@ -11,7 +11,6 @@ import { mount as harnessMount, fire, gestureCallbacksOf, makeGestureController,
 // mithril-lynx core's own test/gesture.test.ts exercises, so these tests
 // extract the registered callbacks and drive them the same way.
 
-const DISPLAY_RECT = { left: 0, top: 0, width: 300, height: 60 };
 const ACTION_RECT = { left: 300, top: 0, width: 80, height: 60 };
 
 let invokeCallCount = 0;
@@ -20,11 +19,8 @@ function mount(attrs: Record<string, unknown> = {}): Mounted {
 	invokeCallCount = 0;
 	(globalThis as any).__nodesRefInvokeHandler = (_element: unknown, method: string, params: unknown, callback: (res: { code: number; data?: unknown }) => void) => {
 		if (method === "boundingClientRect") {
-			// The two children are queried in a fixed order (display, then
-			// action) — see oncreate()'s own s.displayEl/s.actionEl wiring.
-			const rect = invokeCallCount % 2 === 0 ? DISPLAY_RECT : ACTION_RECT;
 			invokeCallCount++;
-			callback({ code: 0, data: rect });
+			callback({ code: 0, data: ACTION_RECT });
 		} else {
 			callback({ code: 0, data: { method, params } });
 		}
@@ -60,14 +56,46 @@ describe("swipe-action.js", () => {
 		expect(controller.calls).toEqual([{ fn: "__ConsumeGesture", args: [expect.anything(), expect.any(Number), { consume: true, inner: false }] }]);
 	});
 
-	it("measures its two children and sizes itself to their combined width", async () => {
+	it("fills the viewport before and after action measurement without a mount layout jump", async () => {
 		const app = mount({});
+		const row = app.root.firstChild!;
+		expect(widthOf(app, app.root)).toBe("100%");
+		expect(widthOf(app, row)).toBe("100%");
+		expect(widthOf(app, row.firstChild!)).toBe("100%");
+		expect(transformOf(app, row)).toBe("translateX(0px)");
 		await settle();
 		await settle();
 		app.redraw();
 
-		const row = app.root.firstChild!; // inner row — carries the width (see swipe-action.js's header)
-		expect(widthOf(app, row)).toBe("380px"); // 300 (display) + 80 (action)
+		expect(widthOf(app, app.root)).toBe("100%");
+		expect(widthOf(app, row)).toBe("100%");
+		expect(widthOf(app, row.firstChild!)).toBe("100%");
+		expect(invokeCallCount).toBe(1);
+	});
+
+	it("preserves an explicit caller width after measurement", async () => {
+		const app = mount({ style: { width: "240px" } });
+		await settle();
+		app.redraw();
+		expect(widthOf(app, app.root)).toBe("240px");
+	});
+
+	it("resets a revealed instance to a full-width closed row on keyed remount", async () => {
+		const ref: Record<string, unknown> = {};
+		let revision = 0;
+		mount({}); // Install the geometry handler.
+		const app = harnessMount(() => m(SwipeAction, { key: revision, actionRef: ref }));
+		await settle();
+		(ref.showActionArea as (animated?: boolean) => void)(false);
+		expect(transformOf(app, app.root.firstChild!)).toBe("translateX(-80px)");
+		revision += 1;
+		app.redraw();
+		expect(widthOf(app, app.root)).toBe("100%");
+		expect(widthOf(app, app.root.firstChild!.firstChild!)).toBe("100%");
+		expect(transformOf(app, app.root.firstChild!)).toBe("translateX(0px)");
+		await settle();
+		app.redraw();
+		expect(transformOf(app, app.root.firstChild!)).toBe("translateX(0px)");
 	});
 
 	it("a horizontal drag moves the transform by the delta, clamped to the action area", async () => {

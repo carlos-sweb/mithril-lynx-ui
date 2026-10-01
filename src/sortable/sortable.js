@@ -5,8 +5,8 @@
 // the per-item drag mechanics — the original's default `as: 'Draggable'`
 // item mode maps almost exactly onto it already (`trigger: 'immediate'`,
 // `allowedDirection: ['up', 'down']`, onDragStart/onDragging/onDragEnd).
-// internal/sortable-utils.js ports the actual swap-tracking algorithm (pure
-// logic, close to verbatim, like internal/slider-utils.js); this file wires
+// sortable-utils.js uses each row's layout position for swap tracking; this
+// keeps gaps and unequal row heights from distorting the threshold. This file wires
 // it to Draggable and to a Scope (this project's Context substitute) that
 // carries shared list state down to each SortableItem.
 //
@@ -57,10 +57,8 @@
 //   handle). Only the default whole-item-is-a-handle mode is supported —
 //   DraggableRoot/DraggableArea have no port in this repo yet.
 // - No `as: 'ScrollView'` owned-scroll-view convenience. SortableRoot
-//   renders NO element of its own (same as radio-group.js's RadioGroup) —
-//   just the Scope Provider wrapping the mapped items — so the caller
-//   supplies whatever container/layout (a plain `<view>`, or their own
-//   `<scroll-view>`) the items live inside.
+//   owns a vertical view with a stable native stacking context. Callers
+//   configure its layout through class/style and supply any scroll-view.
 // - No autoscroll near a scrollable container's edges. The original's
 //   version of this is ~200 lines on its own (edge-distance tracking, a
 //   sticky-direction state machine, a dedicated animation loop calling
@@ -81,106 +79,282 @@
 // as swap targets, still keep their own absolute position in the final
 // order, and are still correctly accounted for in the drag distance math.
 //
-// Sizing each item relies on the native `layoutchange` event (`e.detail.
-// height`) — a plain `on*` listener works the same way it does for every
-// other native event this project already uses (touchstart, tap, ...), per
-// the shim's generic on*-maps-to-addEventListener contract.
+// `layoutchange` provides a cheap initial size, but this Android host reports
+// `top: 0` for every row. The actual positions are read through each row's
+// native `boundingClientRect` method and cached before the drag begins.
 
 import m from "mithril-runtime";
 import { redraw } from "mithril-lynx/mount-redraw";
 import { Draggable } from "../draggable/draggable.js";
 import { cx, classOf } from "../internal/cx.js";
+import { createRef, ensureId } from "../internal/native-ref.js";
 import { createSwapTracker, resetSwapTracker, sortKeyArray, updateSwapTracking } from "./sortable-utils.js";
 import { createScope } from "../scope/scope.js";
 
 const sortableScope = createScope();
 
-function keyArrayOf(vnode) {
-	const data = vnode.attrs.data;
+function keyArrayOf(attrs) {
+	const data = attrs.data;
 	return Array.isArray(data) ? data.map((item) => item.getSortingKey()) : [];
+}
+
+function usableSlots(keys, slots) {
+	let previousBottom = -Infinity;
+	for (const key of keys) {
+		const slot = slots[key];
+		if (!slot || !Number.isFinite(slot.top) || !Number.isFinite(slot.height) || slot.height <= 0 || slot.top < previousBottom - 0.5) return false;
+		previousBottom = slot.top + slot.height;
+	}
+	return true;
+}
+
+function clamp(value, min, max) {
+	return Math.min(Math.max(value, min), max);
+}
+
+function dragBoundsFor(container, item) {
+	if (container == null || item == null || !Number.isFinite(container.top) || !Number.isFinite(container.bottom) ||
+		!Number.isFinite(item.top) || !Number.isFinite(item.height) || item.height <= 0) return null;
+	const minY = container.top - item.top;
+	const maxY = container.bottom - (item.top + item.height);
+	// A row taller than its container cannot fit inside it; keep it at its
+	// starting position instead of producing an inverted clamp range.
+	return maxY < minY ? { minY: 0, maxY: 0 } : { minY, maxY };
 }
 
 function makeApi(vnode) {
 	const s = vnode.state;
-	s.sizeMap = {};
+	s.slotMap = {};
+	s.layoutSlots = {};
+	s.dragSlots = null;
 	s.disabledKeys = {};
 	s.itemRefs = {};
+	s.appliedTransforms = {};
 	s.tracker = createSwapTracker();
 	s.activeKey = null;
+	s.containerRef = null;
+	s.containerRect = null;
+	s.dragBounds = null;
+	s.boundsReady = false;
+	// Sibling transforms animate only while a pointer is actively sorting.
+	// Keep transforms transition-free after release: resetting transforms and
+	// committing the new data order are separate native operations, so letting
+	// CSS animate both can make them race and produce a bounce.
+	s.settling = false;
+	s.lastDeltaY = 0;
+	s.pendingEnd = false;
+	s.measurePending = false;
+	s.dragGeneration = 0;
+	s.currentAttrs = vnode.attrs;
 
 	function writeTransform(key, translate) {
 		const ref = s.itemRefs[key];
 		if (ref != null && typeof ref.setTransform === "function") ref.setTransform(0, translate);
 	}
 
+	function measureSlots(keys) {
+		const reads = Promise.all(keys.map((key) => {
+			const ref = s.itemRefs[key];
+			return ref && typeof ref.getRect === "function" ? ref.getRect() : Promise.reject(new Error("Sortable item is not mounted"));
+		})).then((rects) => {
+			const slots = {};
+			for (let i = 0; i < keys.length; i++) slots[keys[i]] = { top: rects[i].top, height: rects[i].height };
+			if (!usableSlots(keys, slots)) throw new Error("Sortable item geometry is unavailable");
+			return slots;
+		});
+		return Promise.race([reads, new Promise((_, reject) => setTimeout(() => reject(new Error("Sortable measurement timed out")), 500))]);
+	}
+
+	function measureContainerRect() {
+		if (s.containerRef == null) return Promise.resolve(null);
+		return s.containerRef.invoke("boundingClientRect", { relativeTo: "", androidEnableTransformProps: false }).then((rect) => {
+			if (rect && Number.isFinite(rect.top) && Number.isFinite(rect.bottom) && rect.bottom >= rect.top) {
+				s.containerRect = { top: rect.top, bottom: rect.bottom };
+				return s.containerRect;
+			}
+			return null;
+		});
+	}
+
+	function updateDragBounds(key) {
+		// Only native rects are in the same coordinate space as the root. The
+		// Android layoutchange event can report top=0 for every row, so it is
+		// useful for swap fallback but unsafe for containment calculations.
+		const item = s.slotMap[key];
+		const bounds = dragBoundsFor(s.containerRect, item);
+		s.dragBounds = bounds || { minY: 0, maxY: 0 };
+		return bounds != null;
+	}
+
+	function applyMove(key, deltaY) {
+		if (s.activeKey !== key || s.dragSlots == null) return;
+		const writes = updateSwapTracking(s.tracker, {
+			keyArray: keyArrayOf(s.currentAttrs),
+			slotMap: s.dragSlots,
+			disabledKeys: s.disabledKeys,
+			sortingKey: key,
+			movingDistance: deltaY,
+		});
+		for (const write of writes) {
+			if (s.appliedTransforms[write.key] !== write.translate) {
+				writeTransform(write.key, write.translate);
+				s.appliedTransforms[write.key] = write.translate;
+			}
+		}
+	}
+
+	function finishDrag(key) {
+		if (s.activeKey !== key) return;
+		s.settling = true;
+		const keyArray = keyArrayOf(s.currentAttrs);
+		const sortedKeys = sortKeyArray(keyArray, s.disabledKeys, key, s.tracker.lastSwappedKey);
+		if (s.dragSlots != null) {
+			const projectedSlots = {};
+			for (let index = 0; index < sortedKeys.length; index++) {
+				const itemSlot = s.dragSlots[sortedKeys[index]];
+				const destination = s.dragSlots[keyArray[index]];
+				if (itemSlot && destination) projectedSlots[sortedKeys[index]] = { top: destination.top, height: itemSlot.height };
+			}
+			s.slotMap = projectedSlots;
+		}
+		for (const itemKey of Object.keys(s.appliedTransforms)) writeTransform(itemKey, 0);
+		writeTransform(key, 0);
+		resetSwapTracker(s.tracker);
+		s.activeKey = null;
+		s.dragSlots = null;
+		s.boundsReady = false;
+		s.appliedTransforms = {};
+		s.pendingEnd = false;
+		s.measurePending = false;
+		if (typeof s.currentAttrs.onSortEnd === "function") {
+			const dataByKey = new Map((s.currentAttrs.data || []).map((item, i) => [keyArray[i], item]));
+			const sortedData = sortedKeys.map((k) => dataByKey.get(k)).filter((item) => item != null);
+			s.currentAttrs.onSortEnd(sortedData);
+		}
+		redraw();
+	}
+
 	return {
-		isEnabled: () => vnode.attrs.enableSorting !== false,
+		isEnabled: () => s.currentAttrs.enableSorting !== false,
 		activeKey: () => s.activeKey,
+		isSettling: () => s.settling,
+		dragBoundsFor: (key) => s.activeKey === key ? (s.dragBounds || { minY: 0, maxY: 0 }) : null,
+		registerContainer: (ref) => {
+			s.containerRef = ref;
+			return measureContainerRect().catch(() => null);
+		},
+		refreshContainerBounds: () => measureContainerRect().then((rect) => {
+			if (rect != null && s.activeKey != null) {
+				s.boundsReady = updateDragBounds(s.activeKey);
+				const boundedY = s.boundsReady ? clamp(s.lastDeltaY, s.dragBounds.minY, s.dragBounds.maxY) : 0;
+				if (boundedY !== s.lastDeltaY) writeTransform(s.activeKey, boundedY);
+				s.lastDeltaY = boundedY;
+				applyMove(s.activeKey, boundedY);
+				redraw();
+			}
+			return rect;
+		}).catch(() => null),
 		setDisabled: (key, value) => {
 			s.disabledKeys[key] = value;
 		},
-		updateSize: (key, size) => {
-			if (typeof size === "number" && size > 0) s.sizeMap[key] = size;
+		updateSlot: (key, detail) => {
+			if (s.activeKey != null || detail == null) return;
+			const top = detail.top;
+			const height = detail.height;
+			if (Number.isFinite(top) && Number.isFinite(height) && height > 0) {
+				s.layoutSlots[key] = { top, height };
+			}
+			const ref = s.itemRefs[key];
+			if (ref && typeof ref.getRect === "function") {
+				ref.getRect().then((rect) => {
+					if (s.activeKey == null && s.itemRefs[key] === ref && Number.isFinite(rect.top) && Number.isFinite(rect.height)) {
+						s.slotMap[key] = { top: rect.top, height: rect.height };
+					}
+				}).catch(() => {});
+			}
 		},
 		registerItem: (key, ref) => {
 			s.itemRefs[key] = ref;
 		},
 		unregisterItem: (key) => {
 			delete s.itemRefs[key];
-			delete s.sizeMap[key];
+			delete s.slotMap[key];
+			delete s.layoutSlots[key];
 			delete s.disabledKeys[key];
 		},
 
 		onItemDragStart(key) {
+			s.settling = false;
 			s.activeKey = key;
+			const generation = ++s.dragGeneration;
+			const keys = keyArrayOf(s.currentAttrs);
+			s.dragSlots = usableSlots(keys, s.slotMap) ? Object.assign({}, s.slotMap) : usableSlots(keys, s.layoutSlots) ? Object.assign({}, s.layoutSlots) : null;
+			s.boundsReady = updateDragBounds(key);
+			s.appliedTransforms = {};
+			s.lastDeltaY = 0;
+			s.pendingEnd = false;
+			s.measurePending = true;
 			resetSwapTracker(s.tracker);
-			if (typeof vnode.attrs.onSortStart === "function") vnode.attrs.onSortStart();
-			redraw(); // see this file's header — confirmed to crash on device
+			const containerMeasurement = measureContainerRect().catch(() => null);
+			measureSlots(keys).then((slots) => containerMeasurement.then(() => slots)).then((slots) => {
+				if (s.activeKey !== key || s.dragGeneration !== generation) return;
+				s.measurePending = false;
+				s.dragSlots = slots;
+				s.slotMap = slots;
+				s.boundsReady = updateDragBounds(key);
+				const boundedY = s.boundsReady ? clamp(s.lastDeltaY, s.dragBounds.minY, s.dragBounds.maxY) : 0;
+				if (boundedY !== s.lastDeltaY) writeTransform(key, boundedY);
+				s.lastDeltaY = boundedY;
+				applyMove(key, boundedY);
+				if (s.pendingEnd) finishDrag(key);
+				else redraw();
+			}).catch(() => {
+				if (s.dragGeneration !== generation) return;
+				s.measurePending = false;
+				s.boundsReady = false;
+				s.lastDeltaY = 0;
+				writeTransform(key, 0);
+				if (s.activeKey === key && s.pendingEnd) finishDrag(key);
+			});
+			if (typeof s.currentAttrs.onSortStart === "function") s.currentAttrs.onSortStart();
+			redraw();
 		},
 
 		onItemDragMove(key, deltaY) {
-			const writes = updateSwapTracking(s.tracker, {
-				keyArray: keyArrayOf(vnode),
-				sizeMap: s.sizeMap,
-				disabledKeys: s.disabledKeys,
-				sortingKey: key,
-				movingDistance: deltaY,
-			});
-			for (const write of writes) writeTransform(write.key, write.translate);
+			// Until both native measurements resolve, keep the row stationary and
+			// remember the latest pointer delta. Applying an unbounded first move
+			// would let the item escape the root before its bounds arrive.
+			if (s.activeKey === key && !s.boundsReady) {
+				s.lastDeltaY = deltaY;
+				writeTransform(key, 0);
+				return;
+			}
+			const bounds = s.activeKey === key ? (s.dragBounds || { minY: 0, maxY: 0 }) : null;
+			const boundedY = bounds == null ? deltaY : clamp(deltaY, bounds.minY, bounds.maxY);
+			if (boundedY !== deltaY) writeTransform(key, boundedY);
+			s.lastDeltaY = boundedY;
+			applyMove(key, boundedY);
 		},
 
 		onItemDragEnd(key) {
-			const keyArray = keyArrayOf(vnode);
-			const sortedKeys = sortKeyArray(keyArray, s.disabledKeys, key, s.tracker.lastSwappedKey);
-
-			// Snap every touched item's imperative transform back to 0. If the
-			// caller reorders `data` in response to onSortEnd below, Mithril's
-			// own keyed diff keeps each DOM node (by sortingKey) and just moves
-			// it to its new slot — with the transform already at 0, that's a
-			// clean settle, not a residual double-offset.
-			for (const itemKey of Object.keys(s.itemRefs)) writeTransform(itemKey, 0);
-			resetSwapTracker(s.tracker);
-			s.activeKey = null;
-
-			// Always reported, whether the order actually changed or not —
-			// matches the original: the app gets a definitive final order after
-			// every drag, not just the ones that moved something.
-			if (typeof vnode.attrs.onSortEnd === "function") {
-				const dataByKey = new Map((vnode.attrs.data || []).map((item, i) => [keyArray[i], item]));
-				const sortedData = sortedKeys.map((k) => dataByKey.get(k)).filter((item) => item != null);
-				vnode.attrs.onSortEnd(sortedData);
-			}
-			redraw(); // see this file's header — confirmed to crash on device
+			if (s.activeKey !== key) return;
+			// Turn off sibling transform transitions in the touchend render,
+			// before any async measurement can finish and reset/reorder the rows.
+			s.settling = true;
+			if (s.measurePending) s.pendingEnd = true;
+			else finishDrag(key);
 		},
 	};
 }
 
 export const SortableRoot = {
 	oninit(vnode) {
+		vnode.state.containerId = ensureId();
 		vnode.state.api = makeApi(vnode);
 	},
 
 	view(vnode) {
+		vnode.state.currentAttrs = vnode.attrs;
 		const data = Array.isArray(vnode.attrs.data) ? vnode.attrs.data : [];
 		// A named attr, not a positional child — matches the original's own
 		// prop shape (`children: (item) => ReactNode` was already a named prop
@@ -192,7 +366,14 @@ export const SortableRoot = {
 			throw new Error("mithril-lynx-ui: <SortableRoot> requires a `children` function attr: (item) => vnode");
 		}
 
-		return m(
+		return m("view", {
+			id: vnode.state.containerId,
+			class: classOf(vnode.attrs),
+			onlayoutchange: () => vnode.state.api.refreshContainerBounds(),
+			// Establish the drag layer's native stacking context before touch.
+			// A dynamically elevated row otherwise changes coordinate space.
+			style: Object.assign({ display: "flex", flexDirection: "column" }, vnode.attrs.style, { zIndex: "0" }),
+		}, m(
 			sortableScope.Provider,
 			{ value: vnode.state.api },
 			data.map((item) => {
@@ -204,7 +385,10 @@ export const SortableRoot = {
 				if (rendered != null && typeof rendered === "object") rendered.key = item.getSortingKey();
 				return rendered;
 			}),
-		);
+		));
+	},
+	oncreate(vnode) {
+		vnode.state.api.registerContainer(createRef(vnode.state.containerId));
 	},
 };
 
@@ -222,6 +406,8 @@ export const SortableItem = {
 
 		const { style, sortingKey, disabled = false } = vnode.attrs;
 		const className = classOf(vnode.attrs);
+		const activeKey = api.activeKey();
+		const dragBounds = api.dragBoundsFor(sortingKey);
 		if (sortingKey == null) {
 			throw new Error("mithril-lynx-ui: <SortableItem> requires a sortingKey");
 		}
@@ -230,14 +416,20 @@ export const SortableItem = {
 		return m(
 			Draggable,
 			{
-				className: cx(className, { "ui-sorting": api.activeKey() === sortingKey }),
+				className: cx(className, {
+					"ui-sorting": activeKey === sortingKey,
+					"ui-sortable-shifting": activeKey != null && activeKey !== sortingKey && !api.isSettling(),
+					"ui-sortable-settling": api.isSettling(),
+				}),
 				style,
 				trigger: "immediate",
 				allowedDirection: ["up", "down"],
+				minTranslateY: dragBounds && dragBounds.minY,
+				maxTranslateY: dragBounds && dragBounds.maxY,
 				enableDragging: api.isEnabled() && disabled !== true,
 				draggableRef: vnode.state.draggableRef,
 				draggableProps: {
-					onlayoutchange: (e) => api.updateSize(sortingKey, e && e.detail && e.detail.height),
+					onlayoutchange: (e) => api.updateSlot(sortingKey, e && (e.detail || e.params)),
 				},
 				onDragStart: () => api.onItemDragStart(sortingKey),
 				onDragging: (translate) => api.onItemDragMove(sortingKey, translate.y),

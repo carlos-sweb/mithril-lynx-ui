@@ -68,6 +68,40 @@ describe("draggable.js", () => {
 		expect(transformOf(app, node)).toBe("translate(-10px, 0px)");
 	});
 
+	it("clamps the final position across consecutive drags and reports bounded coordinates", () => {
+		const positions: { x: number; y: number }[] = [];
+		const app = mount(() => m(Draggable, {
+			trigger: "immediate", minTranslateX: 0, maxTranslateX: 150, minTranslateY: 0, maxTranslateY: 110,
+			onDragEnd: (point: { x: number; y: number }) => positions.push(point),
+		}));
+		const node = app.root;
+		for (let index = 0; index < 3; index += 1) {
+			fire(node, "touchstart", touch(100, 100));
+			fire(node, "touchmove", touch(250, 210));
+			fire(node, "touchend", {});
+			expect(transformOf(app, node)).toBe("translate(150px, 110px)");
+		}
+		expect(positions).toEqual([{ x: 150, y: 110 }, { x: 150, y: 110 }, { x: 150, y: 110 }]);
+
+		fire(node, "touchstart", touch(250, 210));
+		fire(node, "touchmove", touch(200, 160));
+		expect(transformOf(app, node)).toBe("translate(100px, 60px)");
+		fire(node, "touchmove", touch(-500, -500));
+		expect(transformOf(app, node)).toBe("translate(0px, 0px)");
+	});
+
+	it("cannot accumulate past negative bounds across repeated gestures", () => {
+		const app = mount(() => m(Draggable, {
+			trigger: "immediate", minTranslateX: -40, maxTranslateX: 40, minTranslateY: -30, maxTranslateY: 30,
+		}));
+		for (let index = 0; index < 3; index += 1) {
+			fire(app.root, "touchstart", touch(100, 100));
+			fire(app.root, "touchmove", touch(0, 0));
+			fire(app.root, "touchend", {});
+			expect(transformOf(app, app.root)).toBe("translate(-40px, -30px)");
+		}
+	});
+
 	it("allowedDirection pins the axis it excludes", () => {
 		const app = mount(() => m(Draggable, { trigger: "immediate", allowedDirection: "right" }));
 		const node = app.root;

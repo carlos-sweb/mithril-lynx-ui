@@ -75,6 +75,27 @@ A class set inside a component's raw attribute bag (`boxProps`, `inputProps`, `b
 too. Components that render no element of their own — `RadioGroup`, `FormRoot`, the `*Root` parts of
 Dialog, Sheet, Drawer and Popover — have nothing to put a class on; style their parts instead.
 
+### Sortable container
+
+`SortableRoot` owns a vertical `<view>` with a stable native stacking context (`zIndex: 0`).
+Configure list spacing on the root instead of relying on the outer container's gap:
+
+```js
+m(SortableRoot, {
+  data,
+  style: { gap: "24px", width: "100%" },
+  onSortEnd: (sortedData) => { data = sortedData; },
+  children: (item) => m(SortableItem, {
+    class: "ui-sortable",
+    sortingKey: item.getSortingKey(),
+  }, m("text", String(item.dataItem))),
+});
+```
+
+The root accepts `class`, `className`, and `style`; its `zIndex` is reserved to prevent selected
+rows from changing native coordinate space. The active row is constrained to remain within the
+root's vertical bounds. No additional stacking-context setup is needed.
+
 ### Controlled and uncontrolled
 
 Same rule as lynx-ui: pass `checked` / `value` and the component is controlled (its `default*` prop is
@@ -106,7 +127,7 @@ m(Switch, { defaultChecked: true }, ({ checked, active, disabled }) =>
 | `mithril-lynx-ui/list` | `List` — see `list` below |
 | `mithril-lynx-ui/feed-list` | `FeedList` |
 | `mithril-lynx-ui/lazy-component` | `LazyComponent` |
-| `mithril-lynx-ui/dialog` | `DialogRoot`, `DialogTrigger`, `DialogClose`, `DialogBackdrop`, `DialogContent`, `DialogView` |
+| `mithril-lynx-ui/dialog` | `DialogRoot`, `DialogTrigger`, `DialogClose`, `DialogBackdrop`, `DialogContent`, `DialogView`, `DialogBody` |
 | `mithril-lynx-ui/sheet` | `SheetRoot`, `SheetTrigger`, `SheetClose`, `SheetBackdrop`, `SheetHandle`, `SheetContent`, `SheetView` |
 | `mithril-lynx-ui/drawer` | `DrawerRoot`, `DrawerTrigger`, `DrawerClose`, `DrawerView`, `DrawerBackdrop`, `DrawerContent` |
 | `mithril-lynx-ui/popover` | `PopoverRoot`, `PopoverTrigger`, `PopoverAnchor`, `PopoverBackdrop`, `PopoverPositioner`, `PopoverContent`, `PopoverArrow` |
@@ -116,6 +137,11 @@ m(Switch, { defaultChecked: true }, ({ checked, active, disabled }) =>
 | `mithril-lynx-ui/layout` | `Box`, `Stack`, `Row`, `Column`, `Center`, `Spacer`, `ZStack`, `Grid`, `GridItem`, `Divider`, `AspectRatio` |
 | `mithril-lynx-ui/scope` | `createScope` — the Context substitute described below |
 | `mithril-lynx-ui/native` | `nativeBool` — see Native element interop |
+
+### `dialog` — configurable modal
+
+See the [Dialog guide](docs/dialog.md) for lifecycle, dim/blur/transparent
+backdrops, Android Back integration, reduced motion, accessibility and long content.
 
 ### `slider` — one value model, two shapes
 

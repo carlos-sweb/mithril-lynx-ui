@@ -57,11 +57,12 @@
 //   area just sits fully visible next to the display area at rest, which is
 //   exactly what this port did on the very first device run. Rather than
 //   pass that footgun on to every consumer, the clipping viewport is built
-//   in: an OUTER node (width = displayAreaSize, overflow: hidden, the one
-//   the gesture is registered on and sized by) contains an INNER row (width
-//   = totalAreaSize, the one the transform actually moves) which in turn
-//   contains displayArea/actionArea. Same visual contract, nothing left for
-//   a consumer to remember.
+//   in: an OUTER viewport fills its container (unless the caller sets a
+//   width) and clips an INNER horizontal row. The row and display wrapper
+//   are both 100% wide from the first render. The action follows the display
+//   outside the viewport, without shrinking either area. Only its reveal
+//   distance needs asynchronous measurement; measuring must never resize
+//   the viewport or briefly expose the action during mount/reset.
 
 import m from "mithril-runtime";
 import { redraw } from "mithril-lynx/mount-redraw";
@@ -139,22 +140,20 @@ function animateToClosed(vnode, isCanceling) {
 
 function scheduleMeasure(vnode, attempt = 0) {
 	const s = vnode.state;
-	if (s.displayEl == null || s.actionEl == null) return;
+	if (s.removed || s.actionEl == null) return;
 
-	Promise.all([s.displayEl.invoke("boundingClientRect", { relativeTo: "" }), s.actionEl.invoke("boundingClientRect", { relativeTo: "" })]).then(
-		([displayRes, actionRes]) => {
+	s.actionEl.invoke("boundingClientRect", { relativeTo: "" }).then(
+		(actionRes) => {
+			if (s.removed) return;
 			// internal/native-ref.js's invoke() resolves with the unwrapped
 			// value already — see docs/native-papi/papi-01-imperative-refs.md.
-			const displayWidth = displayRes && displayRes.width;
 			const actionWidth = actionRes && actionRes.width;
-			const gotDisplay = typeof displayWidth === "number" && displayWidth > 0;
 			const gotAction = typeof actionWidth === "number" && actionWidth > 0;
 
-			if (gotDisplay) s.displayAreaSize = displayWidth;
 			if (gotAction) s.actionAreaSize = actionWidth;
 
-			if ((!gotDisplay || !gotAction) && attempt < MAX_MEASURE_ATTEMPTS) {
-				requestFrame(() => scheduleMeasure(vnode, attempt + 1));
+			if (!gotAction && attempt < MAX_MEASURE_ATTEMPTS) {
+				s.measureFrame = requestFrame(() => { s.measureFrame = -1; scheduleMeasure(vnode, attempt + 1); });
 				return;
 			}
 			redraw();
@@ -237,7 +236,8 @@ function onTouchesUp(vnode) {
 export const SwipeAction = {
 	oninit(vnode) {
 		const s = vnode.state;
-		s.displayAreaSize = 0;
+		s.removed = false;
+		s.measureFrame = -1;
 		s.actionAreaSize = vnode.attrs.estimatedActionAreaSize ?? 0;
 		s.currentTransform = 0;
 		s.prevX = 0;
@@ -253,14 +253,12 @@ export const SwipeAction = {
 		// The gesture (internal/gesture.js) needs no id of its own: it's
 		// registered directly on the outer fake-dom node in oncreate below.
 		s.rowRefId = ensureId(null);
-		s.displayRefId = ensureId(null);
 		s.actionRefId = ensureId(null);
 	},
 
 	oncreate(vnode) {
 		const s = vnode.state;
 		s.el = createRef(s.rowRefId);
-		s.displayEl = createRef(s.displayRefId);
 		s.actionEl = createRef(s.actionRefId);
 		scheduleMeasure(vnode);
 
@@ -290,6 +288,8 @@ export const SwipeAction = {
 	},
 
 	onremove(vnode) {
+		vnode.state.removed = true;
+		if (vnode.state.measureFrame !== -1) cancelFrame(vnode.state.measureFrame);
 		clearAnimation(vnode.state);
 		if (vnode.state.gesture != null) vnode.state.gesture.remove();
 	},
@@ -298,14 +298,12 @@ export const SwipeAction = {
 		const s = vnode.state;
 		const { style, displayArea, actionArea, iosEnableSimultaneousTouch = true } = vnode.attrs;
 		const className = classOf(vnode.attrs);
-		const totalAreaSize = s.displayAreaSize + s.actionAreaSize;
 
 		return m(
 			"view",
 			{
 				class: cx(className, { "ui-swipe-action": true, "ui-swiping": s.isHorizontal }),
-				style: Object.assign({}, style, {
-					width: s.displayAreaSize > 0 ? `${s.displayAreaSize}px` : undefined,
+				style: Object.assign({ width: "100%" }, style, {
 					overflow: "hidden",
 				}),
 				"enable-new-animator": nativeBool(false),
@@ -336,7 +334,8 @@ export const SwipeAction = {
 					style: {
 						display: "linear",
 						"linear-orientation": "horizontal",
-						width: totalAreaSize > 0 ? `${totalAreaSize}px` : undefined,
+						width: "100%",
+						overflow: "visible",
 						// Real visual bug, caught only by actually looking at a
 						// screenshot rather than trusting "it doesn't crash": with no
 						// height set here, this row was auto/content-sized — shorter
@@ -353,7 +352,7 @@ export const SwipeAction = {
 					},
 				},
 				[
-					m("view", { id: s.displayRefId, class: "ui-swipe-action-display", style: { height: "100%" } }, displayArea),
+					m("view", { class: "ui-swipe-action-display", style: { width: "100%", height: "100%" } }, displayArea),
 					m(
 						"view",
 						{
